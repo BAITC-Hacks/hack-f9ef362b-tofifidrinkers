@@ -48,7 +48,7 @@ export function buildSummary(decisions: Decision[], scenario: ScenarioResult): E
     synergiesApplied: scenario.synergiesApplied.map((s) => ({ pair: s.pair, district: s.district, indicator: s.indicator, amount: s.amount })),
     decisions: decisions.map((d) => {
       const m = MEASURE_MAP[d.measureId];
-      return { measureId: m.id, name: m.name, direction: m.direction, district: d.districtId, cost: m.cost };
+      return { measureId: m.id, name: m.name, direction: m.direction, district: d.districtId ?? undefined, cost: m.cost };
     }),
     topGains,
     topDrops,

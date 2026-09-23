@@ -1,0 +1,1658 @@
+{
+  "schemaVersion": 1,
+  "violationCodesAreProposed": true,
+  "numericTolerance": 1e-8,
+  "baseline": {
+    "purpose": "Точка отсчёта, не допустимый пользовательский сценарий",
+    "expected": {
+      "cost": 0,
+      "budgetRemaining": 100,
+      "finalIndicators": {
+        "esil": {
+          "T1": 45,
+          "T2": 62,
+          "E1": 68,
+          "E2": 72,
+          "S1": 48,
+          "S2": 55,
+          "B1": 78,
+          "B2": 60,
+          "C1": 75,
+          "C2": 70
+        },
+        "almaty": {
+          "T1": 40,
+          "T2": 75,
+          "E1": 50,
+          "E2": 55,
+          "S1": 60,
+          "S2": 65,
+          "B1": 62,
+          "B2": 52,
+          "C1": 50,
+          "C2": 60
+        },
+        "saryarka": {
+          "T1": 50,
+          "T2": 70,
+          "E1": 42,
+          "E2": 40,
+          "S1": 62,
+          "S2": 68,
+          "B1": 58,
+          "B2": 55,
+          "C1": 45,
+          "C2": 55
+        },
+        "baikonur": {
+          "T1": 52,
+          "T2": 68,
+          "E1": 55,
+          "E2": 50,
+          "S1": 58,
+          "S2": 60,
+          "B1": 52,
+          "B2": 58,
+          "C1": 55,
+          "C2": 58
+        },
+        "nura": {
+          "T1": 55,
+          "T2": 40,
+          "E1": 45,
+          "E2": 65,
+          "S1": 38,
+          "S2": 35,
+          "B1": 55,
+          "B2": 50,
+          "C1": 60,
+          "C2": 50
+        }
+      },
+      "districtScores": {
+        "esil": 62.99,
+        "almaty": 57.06,
+        "saryarka": 54.65,
+        "baikonur": 56.63,
+        "nura": 49.18
+      },
+      "averageScore": 56.8624,
+      "minimumScore": 49.18,
+      "worstDistrictIds": [
+        "nura"
+      ],
+      "criticalIndicators": [
+        {
+          "districtId": "nura",
+          "indicatorId": "S1",
+          "value": 38
+        },
+        {
+          "districtId": "nura",
+          "indicatorId": "S2",
+          "value": 35
+        }
+      ],
+      "criticalCount": 2,
+      "score": 52.55768,
+      "delta": 0,
+      "appliedSynergies": []
+    }
+  },
+  "scenarios": [
+    {
+      "id": "official-example",
+      "name": "Контрольный пример и синергия M10 + M12",
+      "purpose": "Контрольный пример и синергия M10 + M12",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M7",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M8",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          },
+          {
+            "measureId": "M5",
+            "districtId": "saryarka"
+          }
+        ]
+      },
+      "expected": {
+        "valid": true,
+        "violations": [],
+        "cost": 95,
+        "budgetRemaining": 5,
+        "finalIndicators": {
+          "esil": {
+            "T1": 45,
+            "T2": 62,
+            "E1": 68,
+            "E2": 72,
+            "S1": 48,
+            "S2": 55,
+            "B1": 78,
+            "B2": 60,
+            "C1": 75,
+            "C2": 74.375
+          },
+          "almaty": {
+            "T1": 40,
+            "T2": 75,
+            "E1": 50,
+            "E2": 55,
+            "S1": 60,
+            "S2": 65,
+            "B1": 62,
+            "B2": 52,
+            "C1": 50,
+            "C2": 64.375
+          },
+          "saryarka": {
+            "T1": 50,
+            "T2": 70,
+            "E1": 42,
+            "E2": 48.75,
+            "S1": 62,
+            "S2": 68,
+            "B1": 58,
+            "B2": 55,
+            "C1": 47.5,
+            "C2": 59.375
+          },
+          "baikonur": {
+            "T1": 52,
+            "T2": 68,
+            "E1": 55,
+            "E2": 50,
+            "S1": 58,
+            "S2": 60,
+            "B1": 52,
+            "B2": 58,
+            "C1": 55,
+            "C2": 62.375
+          },
+          "nura": {
+            "T1": 55,
+            "T2": 40,
+            "E1": 45,
+            "E2": 65,
+            "S1": 48,
+            "S2": 43.75,
+            "B1": 67.5,
+            "B2": 51.75,
+            "C1": 60,
+            "C2": 54.375
+          }
+        },
+        "districtScores": {
+          "esil": 63.4275,
+          "almaty": 57.4975,
+          "saryarka": 56.3,
+          "baikonur": 57.0675,
+          "nura": 52.9625
+        },
+        "averageScore": 58.0776,
+        "minimumScore": 52.9625,
+        "worstDistrictIds": [
+          "nura"
+        ],
+        "criticalIndicators": [],
+        "criticalCount": 0,
+        "score": 56.54307,
+        "delta": 3.98539,
+        "appliedSynergies": [
+          "M10_M12"
+        ]
+      },
+      "checks": []
+    },
+    {
+      "id": "cheap-valid",
+      "name": "Дешёвый набор за 61; M11 снижает T1 Алматы; районные и городские эффекты",
+      "purpose": "Дешёвый набор за 61; M11 снижает T1 Алматы; районные и городские эффекты",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M9",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M11",
+            "districtId": "almaty"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          },
+          {
+            "measureId": "M4",
+            "districtId": "saryarka"
+          }
+        ]
+      },
+      "expected": {
+        "valid": true,
+        "violations": [],
+        "cost": 61,
+        "budgetRemaining": 39,
+        "finalIndicators": {
+          "esil": {
+            "T1": 45,
+            "T2": 62,
+            "E1": 68,
+            "E2": 72,
+            "S1": 48,
+            "S2": 55,
+            "B1": 78,
+            "B2": 60,
+            "C1": 75,
+            "C2": 74.375
+          },
+          "almaty": {
+            "T1": 38.25,
+            "T2": 75,
+            "E1": 50,
+            "E2": 55,
+            "S1": 60,
+            "S2": 65,
+            "B1": 62,
+            "B2": 62.5,
+            "C1": 50,
+            "C2": 64.375
+          },
+          "saryarka": {
+            "T1": 50,
+            "T2": 70,
+            "E1": 51,
+            "E2": 42.25,
+            "S1": 62,
+            "S2": 68,
+            "B1": 59.5,
+            "B2": 55,
+            "C1": 45,
+            "C2": 59.375
+          },
+          "baikonur": {
+            "T1": 52,
+            "T2": 68,
+            "E1": 55,
+            "E2": 50,
+            "S1": 58,
+            "S2": 60,
+            "B1": 52,
+            "B2": 58,
+            "C1": 55,
+            "C2": 62.375
+          },
+          "nura": {
+            "T1": 55,
+            "T2": 40,
+            "E1": 45,
+            "E2": 65,
+            "S1": 40.625,
+            "S2": 37.625,
+            "B1": 70.125,
+            "B2": 51.75,
+            "C1": 60,
+            "C2": 54.375
+          }
+        },
+        "districtScores": {
+          "esil": 63.4275,
+          "almaty": 58.2675,
+          "saryarka": 56.28,
+          "baikonur": 57.0675,
+          "nura": 51.71375
+        },
+        "averageScore": 58.0586,
+        "minimumScore": 51.71375,
+        "worstDistrictIds": [
+          "nura"
+        ],
+        "criticalIndicators": [
+          {
+            "districtId": "almaty",
+            "indicatorId": "T1",
+            "value": 38.25
+          },
+          {
+            "districtId": "nura",
+            "indicatorId": "S2",
+            "value": 37.625
+          }
+        ],
+        "criticalCount": 2,
+        "score": 54.155145,
+        "delta": 1.597465,
+        "appliedSynergies": [
+          "M10_M12"
+        ]
+      },
+      "checks": []
+    },
+    {
+      "id": "empty",
+      "name": "Пустой набор не является допустимым сценарием",
+      "purpose": "Пустой набор не является допустимым сценарием",
+      "input": {
+        "decisions": []
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "DECISION_COUNT"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "four",
+      "name": "Четыре решения",
+      "purpose": "Четыре решения",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M9",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M11",
+            "districtId": "almaty"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          }
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "DECISION_COUNT"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "six",
+      "name": "Шесть решений",
+      "purpose": "Шесть решений",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M9",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M11",
+            "districtId": "almaty"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          },
+          {
+            "measureId": "M4",
+            "districtId": "saryarka"
+          },
+          {
+            "measureId": "M1",
+            "districtId": "esil"
+          }
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "DECISION_COUNT"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "duplicate-same",
+      "name": "Повтор меры в одном районе",
+      "purpose": "Повтор меры в одном районе",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M9",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M9",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          },
+          {
+            "measureId": "M4",
+            "districtId": "saryarka"
+          }
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "DUPLICATE_MEASURE"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "duplicate-other",
+      "name": "Повтор меры в другом районе",
+      "purpose": "Повтор меры в другом районе",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M9",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M9",
+            "districtId": "esil"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          },
+          {
+            "measureId": "M4",
+            "districtId": "saryarka"
+          }
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "DUPLICATE_MEASURE"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "over-budget",
+      "name": "Превышение бюджета без иных нарушений",
+      "purpose": "Превышение бюджета без иных нарушений",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M3",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M7",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M8",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M13",
+            "districtId": "almaty"
+          },
+          {
+            "measureId": "M6",
+            "districtId": null
+          }
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "BUDGET_EXCEEDED"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "three-social",
+      "name": "Три меры соцсферы",
+      "purpose": "Три меры соцсферы",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M7",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M8",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M9",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          }
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "DIRECTION_LIMIT"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "missing-district",
+      "name": "Отсутствует поле района",
+      "purpose": "Отсутствует поле района",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M9"
+          },
+          {
+            "measureId": "M11",
+            "districtId": "almaty"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          },
+          {
+            "measureId": "M4",
+            "districtId": "saryarka"
+          }
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "DISTRICT_REQUIRED"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "null-district",
+      "name": "Район равен null у районной меры",
+      "purpose": "Район равен null у районной меры",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M9",
+            "districtId": null
+          },
+          {
+            "measureId": "M11",
+            "districtId": "almaty"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          },
+          {
+            "measureId": "M4",
+            "districtId": "saryarka"
+          }
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "DISTRICT_REQUIRED"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "city-district",
+      "name": "Район у городской меры",
+      "purpose": "Район у городской меры",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M9",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M11",
+            "districtId": "almaty"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M4",
+            "districtId": "saryarka"
+          }
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "CITY_DISTRICT_FORBIDDEN"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "unknown-district",
+      "name": "Неизвестный район",
+      "purpose": "Неизвестный район",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M9",
+            "districtId": "unknown"
+          },
+          {
+            "measureId": "M11",
+            "districtId": "almaty"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          },
+          {
+            "measureId": "M4",
+            "districtId": "saryarka"
+          }
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "UNKNOWN_DISTRICT"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "unknown-measure",
+      "name": "Неизвестное мероприятие",
+      "purpose": "Неизвестное мероприятие",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M99",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M11",
+            "districtId": "almaty"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          },
+          {
+            "measureId": "M4",
+            "districtId": "saryarka"
+          }
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "UNKNOWN_MEASURE"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "m1-m3",
+      "name": "Глобальный конфликт M1 и M3 в разных районах",
+      "purpose": "Глобальный конфликт M1 и M3 в разных районах",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M1",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M3",
+            "districtId": "esil"
+          },
+          {
+            "measureId": "M9",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          }
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "INCOMPATIBLE_SCENARIO"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "m4-m7-same",
+      "name": "M4 и M7 в одном районе",
+      "purpose": "M4 и M7 в одном районе",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M4",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M7",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          },
+          {
+            "measureId": "M1",
+            "districtId": "nura"
+          }
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "INCOMPATIBLE_DISTRICT"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "m4-m7-other",
+      "name": "M4 и M7 в разных районах",
+      "purpose": "M4 и M7 в разных районах",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M4",
+            "districtId": "saryarka"
+          },
+          {
+            "measureId": "M7",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          },
+          {
+            "measureId": "M1",
+            "districtId": "nura"
+          }
+        ]
+      },
+      "expected": {
+        "valid": true,
+        "violations": [],
+        "cost": 83,
+        "budgetRemaining": 17,
+        "finalIndicators": {
+          "esil": {
+            "T1": 45,
+            "T2": 62,
+            "E1": 68,
+            "E2": 72,
+            "S1": 48,
+            "S2": 55,
+            "B1": 78,
+            "B2": 60,
+            "C1": 75,
+            "C2": 74.375
+          },
+          "almaty": {
+            "T1": 40,
+            "T2": 75,
+            "E1": 50,
+            "E2": 55,
+            "S1": 60,
+            "S2": 65,
+            "B1": 62,
+            "B2": 52,
+            "C1": 50,
+            "C2": 64.375
+          },
+          "saryarka": {
+            "T1": 50,
+            "T2": 70,
+            "E1": 51,
+            "E2": 42.25,
+            "S1": 62,
+            "S2": 68,
+            "B1": 59.5,
+            "B2": 55,
+            "C1": 45,
+            "C2": 59.375
+          },
+          "baikonur": {
+            "T1": 52,
+            "T2": 68,
+            "E1": 55,
+            "E2": 50,
+            "S1": 58,
+            "S2": 60,
+            "B1": 52,
+            "B2": 58,
+            "C1": 55,
+            "C2": 62.375
+          },
+          "nura": {
+            "T1": 59.5,
+            "T2": 46.75,
+            "E1": 45,
+            "E2": 65,
+            "S1": 48,
+            "S2": 35,
+            "B1": 67.5,
+            "B2": 51.75,
+            "C1": 60,
+            "C2": 54.375
+          }
+        },
+        "districtScores": {
+          "esil": 63.4275,
+          "almaty": 57.4975,
+          "saryarka": 56.28,
+          "baikonur": 57.0675,
+          "nura": 53.125
+        },
+        "averageScore": 58.0996,
+        "minimumScore": 53.125,
+        "worstDistrictIds": [
+          "nura"
+        ],
+        "criticalIndicators": [
+          {
+            "districtId": "nura",
+            "indicatorId": "S2",
+            "value": 35
+          }
+        ],
+        "criticalCount": 1,
+        "score": 55.60722,
+        "delta": 3.04954,
+        "appliedSynergies": [
+          "M10_M12"
+        ]
+      },
+      "checks": []
+    },
+    {
+      "id": "m5-m13-same",
+      "name": "M5 и M13 в одном районе",
+      "purpose": "M5 и M13 в одном районе",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M5",
+            "districtId": "saryarka"
+          },
+          {
+            "measureId": "M13",
+            "districtId": "saryarka"
+          },
+          {
+            "measureId": "M9",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          }
+        ]
+      },
+      "expected": {
+        "valid": false,
+        "violations": [
+          "INCOMPATIBLE_DISTRICT"
+        ],
+        "score": null
+      },
+      "checks": []
+    },
+    {
+      "id": "m5-m13-other",
+      "name": "M5 и M13 в разных районах",
+      "purpose": "M5 и M13 в разных районах",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M5",
+            "districtId": "saryarka"
+          },
+          {
+            "measureId": "M13",
+            "districtId": "almaty"
+          },
+          {
+            "measureId": "M9",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          }
+        ]
+      },
+      "expected": {
+        "valid": true,
+        "violations": [],
+        "cost": 89,
+        "budgetRemaining": 11,
+        "finalIndicators": {
+          "esil": {
+            "T1": 45,
+            "T2": 62,
+            "E1": 68,
+            "E2": 72,
+            "S1": 48,
+            "S2": 55,
+            "B1": 78,
+            "B2": 60,
+            "C1": 75,
+            "C2": 74.375
+          },
+          "almaty": {
+            "T1": 40,
+            "T2": 75,
+            "E1": 50,
+            "E2": 56,
+            "S1": 60,
+            "S2": 65,
+            "B1": 62,
+            "B2": 52,
+            "C1": 59,
+            "C2": 64.375
+          },
+          "saryarka": {
+            "T1": 50,
+            "T2": 70,
+            "E1": 42,
+            "E2": 48.75,
+            "S1": 62,
+            "S2": 68,
+            "B1": 58,
+            "B2": 55,
+            "C1": 47.5,
+            "C2": 59.375
+          },
+          "baikonur": {
+            "T1": 52,
+            "T2": 68,
+            "E1": 55,
+            "E2": 50,
+            "S1": 58,
+            "S2": 60,
+            "B1": 52,
+            "B2": 58,
+            "C1": 55,
+            "C2": 62.375
+          },
+          "nura": {
+            "T1": 55,
+            "T2": 40,
+            "E1": 45,
+            "E2": 65,
+            "S1": 40.625,
+            "S2": 37.625,
+            "B1": 70.125,
+            "B2": 51.75,
+            "C1": 60,
+            "C2": 54.375
+          }
+        },
+        "districtScores": {
+          "esil": 63.4275,
+          "almaty": 58.5075,
+          "saryarka": 56.3,
+          "baikonur": 57.0675,
+          "nura": 51.71375
+        },
+        "averageScore": 58.1202,
+        "minimumScore": 51.71375,
+        "worstDistrictIds": [
+          "nura"
+        ],
+        "criticalIndicators": [
+          {
+            "districtId": "nura",
+            "indicatorId": "S2",
+            "value": 37.625
+          }
+        ],
+        "criticalCount": 1,
+        "score": 55.198265,
+        "delta": 2.640585,
+        "appliedSynergies": [
+          "M10_M12"
+        ]
+      },
+      "checks": []
+    },
+    {
+      "id": "synergy-transport",
+      "name": "M1 + M2; бонус T1 не уменьшается по лагу",
+      "purpose": "M1 + M2; бонус T1 не уменьшается по лагу",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M1",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M2",
+            "districtId": null
+          },
+          {
+            "measureId": "M9",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M11",
+            "districtId": "esil"
+          },
+          {
+            "measureId": "M14",
+            "districtId": null
+          }
+        ]
+      },
+      "expected": {
+        "valid": true,
+        "violations": [],
+        "cost": 76,
+        "budgetRemaining": 24,
+        "finalIndicators": {
+          "esil": {
+            "T1": 46.25,
+            "T2": 62,
+            "E1": 68,
+            "E2": 72,
+            "S1": 48,
+            "S2": 55,
+            "B1": 78,
+            "B2": 72.75,
+            "C1": 79.375,
+            "C2": 71.75
+          },
+          "almaty": {
+            "T1": 43,
+            "T2": 75,
+            "E1": 50,
+            "E2": 55,
+            "S1": 60,
+            "S2": 65,
+            "B1": 62,
+            "B2": 54.25,
+            "C1": 54.375,
+            "C2": 61.75
+          },
+          "saryarka": {
+            "T1": 53,
+            "T2": 70,
+            "E1": 42,
+            "E2": 40,
+            "S1": 62,
+            "S2": 68,
+            "B1": 58,
+            "B2": 57.25,
+            "C1": 49.375,
+            "C2": 56.75
+          },
+          "baikonur": {
+            "T1": 55,
+            "T2": 68,
+            "E1": 55,
+            "E2": 50,
+            "S1": 58,
+            "S2": 60,
+            "B1": 52,
+            "B2": 60.25,
+            "C1": 59.375,
+            "C2": 59.75
+          },
+          "nura": {
+            "T1": 64.5,
+            "T2": 46.75,
+            "E1": 45,
+            "E2": 65,
+            "S1": 40.625,
+            "S2": 37.625,
+            "B1": 57.625,
+            "B2": 52.25,
+            "C1": 64.375,
+            "C2": 51.75
+          }
+        },
+        "districtScores": {
+          "esil": 64.875,
+          "almaty": 58.175,
+          "saryarka": 55.765,
+          "baikonur": 57.745,
+          "nura": 52.43375
+        },
+        "averageScore": 58.5275,
+        "minimumScore": 52.43375,
+        "worstDistrictIds": [
+          "nura"
+        ],
+        "criticalIndicators": [
+          {
+            "districtId": "nura",
+            "indicatorId": "S2",
+            "value": 37.625
+          }
+        ],
+        "criticalCount": 1,
+        "score": 55.699375,
+        "delta": 3.141695,
+        "appliedSynergies": [
+          "M1_M2"
+        ]
+      },
+      "checks": []
+    },
+    {
+      "id": "synergy-ecology",
+      "name": "M5 + M6; бонус E2 не уменьшается по лагу",
+      "purpose": "M5 + M6; бонус E2 не уменьшается по лагу",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M5",
+            "districtId": "saryarka"
+          },
+          {
+            "measureId": "M6",
+            "districtId": null
+          },
+          {
+            "measureId": "M9",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M11",
+            "districtId": "esil"
+          },
+          {
+            "measureId": "M14",
+            "districtId": null
+          }
+        ]
+      },
+      "expected": {
+        "valid": true,
+        "violations": [],
+        "cost": 81,
+        "budgetRemaining": 19,
+        "finalIndicators": {
+          "esil": {
+            "T1": 43.25,
+            "T2": 62,
+            "E1": 70.5,
+            "E2": 73.5,
+            "S1": 48,
+            "S2": 55,
+            "B1": 78,
+            "B2": 70.5,
+            "C1": 79.375,
+            "C2": 71.75
+          },
+          "almaty": {
+            "T1": 40,
+            "T2": 75,
+            "E1": 52.5,
+            "E2": 56.5,
+            "S1": 60,
+            "S2": 65,
+            "B1": 62,
+            "B2": 52,
+            "C1": 54.375,
+            "C2": 61.75
+          },
+          "saryarka": {
+            "T1": 50,
+            "T2": 70,
+            "E1": 44.5,
+            "E2": 52.25,
+            "S1": 62,
+            "S2": 68,
+            "B1": 58,
+            "B2": 55,
+            "C1": 51.875,
+            "C2": 56.75
+          },
+          "baikonur": {
+            "T1": 52,
+            "T2": 68,
+            "E1": 57.5,
+            "E2": 51.5,
+            "S1": 58,
+            "S2": 60,
+            "B1": 52,
+            "B2": 58,
+            "C1": 59.375,
+            "C2": 59.75
+          },
+          "nura": {
+            "T1": 55,
+            "T2": 40,
+            "E1": 47.5,
+            "E2": 66.5,
+            "S1": 40.625,
+            "S2": 37.625,
+            "B1": 57.625,
+            "B2": 50,
+            "C1": 64.375,
+            "C2": 51.75
+          }
+        },
+        "districtScores": {
+          "esil": 64.7625,
+          "almaty": 58.0625,
+          "saryarka": 57.085,
+          "baikonur": 57.6325,
+          "nura": 50.99625
+        },
+        "averageScore": 58.4895,
+        "minimumScore": 50.99625,
+        "worstDistrictIds": [
+          "nura"
+        ],
+        "criticalIndicators": [
+          {
+            "districtId": "nura",
+            "indicatorId": "S2",
+            "value": 37.625
+          }
+        ],
+        "criticalCount": 1,
+        "score": 55.241525,
+        "delta": 2.683845,
+        "appliedSynergies": [
+          "M5_M6"
+        ]
+      },
+      "checks": []
+    },
+    {
+      "id": "lrt-lag",
+      "name": "ЛРТ даёт половину полного эффекта за горизонт",
+      "purpose": "ЛРТ даёт половину полного эффекта за горизонт",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M3",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M9",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          },
+          {
+            "measureId": "M6",
+            "districtId": null
+          }
+        ]
+      },
+      "expected": {
+        "valid": true,
+        "violations": [],
+        "cost": 86,
+        "budgetRemaining": 14,
+        "finalIndicators": {
+          "esil": {
+            "T1": 45,
+            "T2": 62,
+            "E1": 70.5,
+            "E2": 73.5,
+            "S1": 48,
+            "S2": 55,
+            "B1": 78,
+            "B2": 60,
+            "C1": 75,
+            "C2": 74.375
+          },
+          "almaty": {
+            "T1": 40,
+            "T2": 75,
+            "E1": 52.5,
+            "E2": 56.5,
+            "S1": 60,
+            "S2": 65,
+            "B1": 62,
+            "B2": 52,
+            "C1": 50,
+            "C2": 64.375
+          },
+          "saryarka": {
+            "T1": 50,
+            "T2": 70,
+            "E1": 44.5,
+            "E2": 41.5,
+            "S1": 62,
+            "S2": 68,
+            "B1": 58,
+            "B2": 55,
+            "C1": 45,
+            "C2": 59.375
+          },
+          "baikonur": {
+            "T1": 52,
+            "T2": 68,
+            "E1": 57.5,
+            "E2": 51.5,
+            "S1": 58,
+            "S2": 60,
+            "B1": 52,
+            "B2": 58,
+            "C1": 55,
+            "C2": 62.375
+          },
+          "nura": {
+            "T1": 63,
+            "T2": 50,
+            "E1": 47.5,
+            "E2": 68.5,
+            "S1": 40.625,
+            "S2": 37.625,
+            "B1": 70.125,
+            "B2": 51.75,
+            "C1": 60,
+            "C2": 54.375
+          }
+        },
+        "districtScores": {
+          "esil": 63.8175,
+          "almaty": 57.8875,
+          "saryarka": 55.4775,
+          "baikonur": 57.4575,
+          "nura": 54.12375
+        },
+        "averageScore": 58.3485,
+        "minimumScore": 54.12375,
+        "worstDistrictIds": [
+          "nura"
+        ],
+        "criticalIndicators": [
+          {
+            "districtId": "nura",
+            "indicatorId": "S2",
+            "value": 37.625
+          }
+        ],
+        "criticalCount": 1,
+        "score": 56.081075,
+        "delta": 3.523395,
+        "appliedSynergies": [
+          "M10_M12"
+        ]
+      },
+      "checks": []
+    },
+    {
+      "id": "reverse-order",
+      "name": "Перестановка решений контрольного примера",
+      "purpose": "Перестановка решений контрольного примера",
+      "input": {
+        "decisions": [
+          {
+            "measureId": "M5",
+            "districtId": "saryarka"
+          },
+          {
+            "measureId": "M12",
+            "districtId": null
+          },
+          {
+            "measureId": "M10",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M8",
+            "districtId": "nura"
+          },
+          {
+            "measureId": "M7",
+            "districtId": "nura"
+          }
+        ]
+      },
+      "expected": {
+        "valid": true,
+        "violations": [],
+        "cost": 95,
+        "budgetRemaining": 5,
+        "finalIndicators": {
+          "esil": {
+            "T1": 45,
+            "T2": 62,
+            "E1": 68,
+            "E2": 72,
+            "S1": 48,
+            "S2": 55,
+            "B1": 78,
+            "B2": 60,
+            "C1": 75,
+            "C2": 74.375
+          },
+          "almaty": {
+            "T1": 40,
+            "T2": 75,
+            "E1": 50,
+            "E2": 55,
+            "S1": 60,
+            "S2": 65,
+            "B1": 62,
+            "B2": 52,
+            "C1": 50,
+            "C2": 64.375
+          },
+          "saryarka": {
+            "T1": 50,
+            "T2": 70,
+            "E1": 42,
+            "E2": 48.75,
+            "S1": 62,
+            "S2": 68,
+            "B1": 58,
+            "B2": 55,
+            "C1": 47.5,
+            "C2": 59.375
+          },
+          "baikonur": {
+            "T1": 52,
+            "T2": 68,
+            "E1": 55,
+            "E2": 50,
+            "S1": 58,
+            "S2": 60,
+            "B1": 52,
+            "B2": 58,
+            "C1": 55,
+            "C2": 62.375
+          },
+          "nura": {
+            "T1": 55,
+            "T2": 40,
+            "E1": 45,
+            "E2": 65,
+            "S1": 48,
+            "S2": 43.75,
+            "B1": 67.5,
+            "B2": 51.75,
+            "C1": 60,
+            "C2": 54.375
+          }
+        },
+        "districtScores": {
+          "esil": 63.4275,
+          "almaty": 57.4975,
+          "saryarka": 56.3,
+          "baikonur": 57.0675,
+          "nura": 52.9625
+        },
+        "averageScore": 58.0776,
+        "minimumScore": 52.9625,
+        "worstDistrictIds": [
+          "nura"
+        ],
+        "criticalIndicators": [],
+        "criticalCount": 0,
+        "score": 56.54307,
+        "delta": 3.98539,
+        "appliedSynergies": [
+          "M10_M12"
+        ]
+      },
+      "checks": [],
+      "equivalentTo": "official-example"
+    }
+  ],
+  "unitChecks": [
+    {
+      "id": "clip-low",
+      "operation": "clip",
+      "input": -2,
+      "expected": 0
+    },
+    {
+      "id": "clip-high",
+      "operation": "clip",
+      "input": 105,
+      "expected": 100
+    },
+    {
+      "id": "clip-interior",
+      "operation": "clip",
+      "input": 39.5,
+      "expected": 39.5
+    },
+    {
+      "id": "critical-equal",
+      "operation": "isCritical",
+      "input": 40,
+      "expected": false
+    },
+    {
+      "id": "critical-below",
+      "operation": "isCritical",
+      "input": 39.999,
+      "expected": true
+    },
+    {
+      "id": "clip-after-sum",
+      "operation": "clipSum",
+      "input": [
+        99,
+        5,
+        -3
+      ],
+      "expected": 100
+    }
+  ],
+  "unitChecksNote": "Искусственные проверки арифметических границ, исходный датасет не изменён."
+}

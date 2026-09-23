@@ -7,6 +7,7 @@ import {
   HORIZON_QUARTERS,
   INCOMPATIBILITIES,
   INDICATOR_CODES,
+  INDICATORS,
   IndicatorCode,
   MAX_PER_DIRECTION,
   MEASURE_MAP,
@@ -18,12 +19,26 @@ import {
 
 export interface Decision {
   measureId: MeasureId;
-  districtId?: DistrictId;
+  districtId?: DistrictId | null;
 }
+
+// Коды нарушений — предложены Даниялом в DATA_CONTRACT.md, согласованы как общий формат.
+export type ViolationCode =
+  | "DECISION_COUNT"
+  | "DUPLICATE_MEASURE"
+  | "UNKNOWN_MEASURE"
+  | "UNKNOWN_DISTRICT"
+  | "DISTRICT_REQUIRED"
+  | "CITY_DISTRICT_FORBIDDEN"
+  | "BUDGET_EXCEEDED"
+  | "DIRECTION_LIMIT"
+  | "INCOMPATIBLE_SCENARIO"
+  | "INCOMPATIBLE_DISTRICT";
 
 export interface ValidationResult {
   valid: boolean;
   reason?: string;
+  code?: ViolationCode;
 }
 
 export interface Contribution {
@@ -56,30 +71,29 @@ export interface ScenarioResult {
   budgetLeft: number;
   districts: DistrictOutcome[];
   dAvg: number;
+  /** Первый из районов-худших по finalScore (для обратной совместимости с UI). */
   worstDistrict: { id: DistrictId; name: string; score: number };
+  /** Все районы, делящие минимальный finalScore (обычно один). */
+  worstDistrictIds: DistrictId[];
   nCrit: number;
   criticalPairs: { district: string; indicator: IndicatorCode }[];
   score: number;
   directionsUsed: Record<string, number>;
-  synergiesApplied: { pair: [MeasureId, MeasureId]; district: string; indicator: IndicatorCode; amount: number }[];
+  synergiesApplied: { id: string; pair: [MeasureId, MeasureId]; district: string; indicator: IndicatorCode; amount: number }[];
 }
 
 export type ScenarioOutcome = ScenarioResult | (ValidationResult & { valid: false });
 
+const DISTRICT_IDS = new Set<DistrictId>(DISTRICTS.map((d) => d.id));
+
 function districtScore(values: Record<IndicatorCode, number>): number {
   let sum = 0;
   for (const code of INDICATOR_CODES) {
-    const indicator = INDICATOR_DEF(code);
+    const indicator = INDICATORS.find((i) => i.code === code);
+    if (!indicator) throw new Error(`Unknown indicator ${code}`);
     sum += indicator.weight * values[code];
   }
   return sum;
-}
-
-import { INDICATORS } from "./data";
-function INDICATOR_DEF(code: IndicatorCode) {
-  const found = INDICATORS.find((i) => i.code === code);
-  if (!found) throw new Error(`Unknown indicator ${code}`);
-  return found;
 }
 
 function countCritical(districtsValues: Record<DistrictId, Record<IndicatorCode, number>>): number {
@@ -92,45 +106,73 @@ function countCritical(districtsValues: Record<DistrictId, Record<IndicatorCode,
   return n;
 }
 
-/** Базовый сценарий (без решений) — точка отсчёта для сравнения. */
-export function computeBaseline(): ScenarioResult {
-  return calculateScenario([]) as ScenarioResult;
-}
-
 export function validateScenario(decisions: Decision[]): ValidationResult {
-  if (decisions.length !== DECISIONS_REQUIRED && decisions.length !== 0) {
-    return { valid: false, reason: `Нужно выбрать ровно ${DECISIONS_REQUIRED} решений, выбрано ${decisions.length}.` };
+  if (decisions.length !== DECISIONS_REQUIRED) {
+    return {
+      valid: false,
+      code: "DECISION_COUNT",
+      reason: `Нужно выбрать ровно ${DECISIONS_REQUIRED} решений, выбрано ${decisions.length}.`,
+    };
   }
 
-  const ids = decisions.map((d) => d.measureId);
   const seen = new Set<MeasureId>();
-  for (const id of ids) {
-    if (seen.has(id)) return { valid: false, reason: `Мероприятие ${id} выбрано более одного раза — повторы запрещены.` };
-    seen.add(id);
+  for (const d of decisions) {
+    if (seen.has(d.measureId)) {
+      return {
+        valid: false,
+        code: "DUPLICATE_MEASURE",
+        reason: `Мероприятие ${d.measureId} выбрано более одного раза — повторы запрещены.`,
+      };
+    }
+    seen.add(d.measureId);
   }
 
-  let cost = 0;
-  const perDirection: Record<string, number> = {};
+  for (const d of decisions) {
+    if (!MEASURE_MAP[d.measureId]) {
+      return { valid: false, code: "UNKNOWN_MEASURE", reason: `Неизвестное мероприятие ${d.measureId}.` };
+    }
+  }
+
   for (const d of decisions) {
     const measure = MEASURE_MAP[d.measureId];
-    if (!measure) return { valid: false, reason: `Неизвестное мероприятие ${d.measureId}.` };
-    if (measure.scope === "Район" && !d.districtId) {
-      return { valid: false, reason: `Для мероприятия ${measure.id} (${measure.name}) нужно указать район.` };
-    }
     if (measure.scope === "Город" && d.districtId) {
-      return { valid: false, reason: `Мероприятие ${measure.id} (${measure.name}) городское — район указывать не нужно.` };
+      return {
+        valid: false,
+        code: "CITY_DISTRICT_FORBIDDEN",
+        reason: `Мероприятие ${measure.id} (${measure.name}) городское — район указывать не нужно.`,
+      };
     }
-    cost += measure.cost;
-    perDirection[measure.direction] = (perDirection[measure.direction] ?? 0) + 1;
+    if (measure.scope === "Район") {
+      if (!d.districtId) {
+        return {
+          valid: false,
+          code: "DISTRICT_REQUIRED",
+          reason: `Для мероприятия ${measure.id} (${measure.name}) нужно указать район.`,
+        };
+      }
+      if (!DISTRICT_IDS.has(d.districtId)) {
+        return { valid: false, code: "UNKNOWN_DISTRICT", reason: `Неизвестный район ${d.districtId}.` };
+      }
+    }
   }
 
+  const cost = decisions.reduce((sum, d) => sum + MEASURE_MAP[d.measureId].cost, 0);
   if (cost > BUDGET) {
-    return { valid: false, reason: `Превышен бюджет: стоимость ${cost} > ${BUDGET}.` };
+    return { valid: false, code: "BUDGET_EXCEEDED", reason: `Превышен бюджет: стоимость ${cost} > ${BUDGET}.` };
   }
 
+  const perDirection: Record<string, number> = {};
+  for (const d of decisions) {
+    const direction = MEASURE_MAP[d.measureId].direction;
+    perDirection[direction] = (perDirection[direction] ?? 0) + 1;
+  }
   for (const [direction, count] of Object.entries(perDirection)) {
     if (count > MAX_PER_DIRECTION) {
-      return { valid: false, reason: `Направление «${direction}» выбрано ${count} раз(а) — максимум ${MAX_PER_DIRECTION}.` };
+      return {
+        valid: false,
+        code: "DIRECTION_LIMIT",
+        reason: `Направление «${direction}» выбрано ${count} раз(а) — максимум ${MAX_PER_DIRECTION}.`,
+      };
     }
   }
 
@@ -140,10 +182,10 @@ export function validateScenario(decisions: Decision[]): ValidationResult {
     const db = decisions.find((d) => d.measureId === b);
     if (da && db) {
       if (!incompat.sameDistrictOnly) {
-        return { valid: false, reason: incompat.reason };
+        return { valid: false, code: "INCOMPATIBLE_SCENARIO", reason: incompat.reason };
       }
-      if (da.districtId === db.districtId) {
-        return { valid: false, reason: incompat.reason };
+      if (da.districtId && da.districtId === db.districtId) {
+        return { valid: false, code: "INCOMPATIBLE_DISTRICT", reason: incompat.reason };
       }
     }
   }
@@ -151,11 +193,13 @@ export function validateScenario(decisions: Decision[]): ValidationResult {
   return { valid: true };
 }
 
-export function calculateScenario(decisions: Decision[]): ScenarioOutcome {
-  const validation = validateScenario(decisions);
-  if (!validation.valid) return validation as ValidationResult & { valid: false };
-
-  const measures: { measure: Measure; districtId?: DistrictId }[] = decisions.map((d) => ({
+/**
+ * Расчёт без проверки правил — используется calculateScenario (после успешной validateScenario)
+ * и computeBaseline (сознательно обходит validateScenario: пустой набор не является допустимым
+ * пользовательским сценарием, но нужен как точка отсчёта для сравнения).
+ */
+function calculateRaw(decisions: Decision[]): ScenarioResult {
+  const measures: { measure: Measure; districtId?: DistrictId | null }[] = decisions.map((d) => ({
     measure: MEASURE_MAP[d.measureId],
     districtId: d.districtId,
   }));
@@ -191,13 +235,12 @@ export function calculateScenario(decisions: Decision[]): ScenarioOutcome {
     const decisionB = decisions.find((d) => d.measureId === b);
     if (decisionA && decisionB) {
       const anchorDecision = synergy.anchor === a ? decisionA : decisionB;
-      const measureA = MEASURE_MAP[a];
-      const measureB = MEASURE_MAP[b];
-      const anchorMeasure = synergy.anchor === a ? measureA : measureB;
+      const anchorMeasure = MEASURE_MAP[synergy.anchor];
       const districtId = anchorMeasure.scope === "Район" ? (anchorDecision.districtId as DistrictId) : DISTRICTS[0].id;
       // Бонус фиксированный, лагом не масштабируется.
       applyEffect(districtId, synergy.bonusIndicator, synergy.bonusAmount, "synergy", synergy.anchor === a ? b : a);
       synergiesApplied.push({
+        id: `${a}_${b}`,
         pair: synergy.pair,
         district: DISTRICTS.find((d) => d.id === districtId)!.name,
         indicator: synergy.bonusIndicator,
@@ -239,13 +282,14 @@ export function calculateScenario(decisions: Decision[]): ScenarioOutcome {
   });
 
   const dAvg = districtOutcomes.reduce((sum, d) => sum + d.populationShare * d.finalScore, 0);
-  const worst = districtOutcomes.reduce((min, d) => (d.finalScore < min.finalScore ? d : min), districtOutcomes[0]);
+  const minScore = Math.min(...districtOutcomes.map((d) => d.finalScore));
+  const worstOutcomes = districtOutcomes.filter((d) => d.finalScore === minScore);
   const nCrit = countCritical(finalValues);
   const criticalPairs = districtOutcomes.flatMap((d) =>
     d.indicators.filter((i) => i.critical).map((i) => ({ district: d.name, indicator: i.indicator }))
   );
 
-  const score = SCORE_WEIGHTS.avg * dAvg + SCORE_WEIGHTS.worst * worst.finalScore - SCORE_WEIGHTS.critPenalty * nCrit;
+  const score = SCORE_WEIGHTS.avg * dAvg + SCORE_WEIGHTS.worst * minScore - SCORE_WEIGHTS.critPenalty * nCrit;
 
   const directionsUsed: Record<string, number> = {};
   for (const { measure } of measures) {
@@ -260,11 +304,23 @@ export function calculateScenario(decisions: Decision[]): ScenarioOutcome {
     budgetLeft: BUDGET - cost,
     districts: districtOutcomes,
     dAvg,
-    worstDistrict: { id: worst.districtId, name: worst.name, score: worst.finalScore },
+    worstDistrict: { id: worstOutcomes[0].districtId, name: worstOutcomes[0].name, score: worstOutcomes[0].finalScore },
+    worstDistrictIds: worstOutcomes.map((d) => d.districtId),
     nCrit,
     criticalPairs,
     score,
     directionsUsed,
     synergiesApplied,
   };
+}
+
+export function calculateScenario(decisions: Decision[]): ScenarioOutcome {
+  const validation = validateScenario(decisions);
+  if (!validation.valid) return validation as ValidationResult & { valid: false };
+  return calculateRaw(decisions);
+}
+
+/** Базовый сценарий (без решений) — точка отсчёта для сравнения, не является допустимым пользовательским сценарием. */
+export function computeBaseline(): ScenarioResult {
+  return calculateRaw([]);
 }

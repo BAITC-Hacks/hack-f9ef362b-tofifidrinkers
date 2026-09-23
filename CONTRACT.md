@@ -23,34 +23,43 @@ type MeasureId = "M1" ... "M14";
 
 interface Decision {
   measureId: MeasureId;
-  districtId?: DistrictId; // обязателен для мер scope="Район", не указывается для scope="Город"
+  districtId?: DistrictId | null; // обязателен (не null/undefined) для scope="Район"; для scope="Город" — не указывать или null
 }
 ```
+
+Пустой массив решений — **не** допустимый пользовательский сценарий (`DECISION_COUNT`), даже несмотря на то что внутренний `computeBaseline()` использует пустой набор как точку отсчёта в обход валидатора.
 
 ## Функции
 
 ```ts
 // src/lib/engine.ts
-function validateScenario(decisions: Decision[]): { valid: boolean; reason?: string };
+type ViolationCode =
+  | "DECISION_COUNT" | "DUPLICATE_MEASURE" | "UNKNOWN_MEASURE" | "UNKNOWN_DISTRICT"
+  | "DISTRICT_REQUIRED" | "CITY_DISTRICT_FORBIDDEN" | "BUDGET_EXCEEDED"
+  | "DIRECTION_LIMIT" | "INCOMPATIBLE_SCENARIO" | "INCOMPATIBLE_DISTRICT";
+
+function validateScenario(decisions: Decision[]): { valid: boolean; reason?: string; code?: ViolationCode };
 
 function calculateScenario(decisions: Decision[]):
-  | { valid: false; reason?: string }
+  | { valid: false; reason?: string; code?: ViolationCode }
   | {
       valid: true;
       cost: number;
       budgetLeft: number;
       districts: DistrictOutcome[];   // по каждому из 5 районов: baseScore, finalScore, indicators[]
       dAvg: number;
-      worstDistrict: { id: DistrictId; name: string; score: number };
+      worstDistrict: { id: DistrictId; name: string; score: number };   // первый из районов-худших (совместимость)
+      worstDistrictIds: DistrictId[]; // все районы, делящие минимальный finalScore
       nCrit: number;
       criticalPairs: { district: string; indicator: IndicatorCode }[];
       score: number;                  // итоговый Astana Quality of Life Score
       directionsUsed: Record<string, number>;
-      synergiesApplied: { pair: [MeasureId, MeasureId]; district: string; indicator: IndicatorCode; amount: number }[];
+      synergiesApplied: { id: string; pair: [MeasureId, MeasureId]; district: string; indicator: IndicatorCode; amount: number }[];
     };
 ```
 
-`calculateScenario` сам вызывает `validateScenario` — невалидный набор возвращает `{valid:false, reason}` без Score (как требуют правила).
+`code` — коды нарушений, предложенные Даниялом в `fixtures/daniyal/DATA_CONTRACT.md`, приняты как общий формат.
+`calculateScenario` сам вызывает `validateScenario` — невалидный набор возвращает `{valid:false, reason, code}` без Score (как требуют правила).
 
 ## API-роуты
 
@@ -74,10 +83,20 @@ function calculateScenario(decisions: Decision[]):
 
 `src/components/Simulator.tsx` — рабочий MVP уже есть (каталог мер по направлениям, счётчик бюджета/решений, причины невалидности, результат до/после по районам, AI-объяснение, кнопка улучшения). Свободно меняй вёрстку/тексты/структуру — контракт только один: не считать Score самому, использовать `calculateScenario`.
 
+## Данные и контрольные сценарии Данияла
+
+`fixtures/daniyal/` — независимый пакет Данияла (city-data.json, DATA_CONTRACT.md, scenario-fixtures.json:
+23 сценария + база + 6 unit-проверок, IMPROVEMENT_SPEC.md, verify_fixtures.py). Числа и правила в
+`data.ts`/`engine.ts` сверены с ним автоматически, см. ниже.
+
 ## Проверка корректности
 
 ```bash
-npm run verify
+npm run verify           # контрольные числа + чек-лист граничных случаев (свой набор)
+npm run verify:daniyal   # 100% сверка со всеми 23 сценариями + базой + 6 unit-проверками Данияла,
+                          # допуск 1e-8, полностью независимо перепроверено на Python: fixtures/daniyal/verify_fixtures.py
 ```
 
-29 проверок: контрольные числа из датасета (база 52.56, пример 56.54, синергия, стоимости) + весь чек-лист граничных случаев (бюджет, повторы, направления, несовместимости, порядок решений). Обновляется вместе с `engine.ts`/`data.ts`.
+Оба скрипта зелёные. `verify:daniyal` — самая сильная гарантия корректности: два независимо
+написанных набора проверок (мой TS-движок и Python-скрипт Данияла) сходятся на всех значениях,
+включая полные `finalIndicators` по всем 5 районам × 10 показателям для каждого сценария.
