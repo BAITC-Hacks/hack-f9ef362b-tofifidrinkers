@@ -181,7 +181,7 @@ def main():
     require(not any(x['districtId'] == 'nura' and x['indicatorId'] == 'T2' for x in base['criticalIndicators']), 'Ровно 40 не критично')
     print(f"OK: данные; база; {len(results)} сценария; {len(fixtures['unitChecks'])} граничных проверок; ручные арифметические ориентиры.")
     print('Score базы 52.55768; контрольный Score 56.54307; прирост 3.98539 (на экране +3.99).')
-    print('Backend Ильяса не проверялся: это независимый проверочный комплект.')
+    print('Работающий сервер не проверялся: это независимый проверочный комплект.')
 
 if __name__ == '__main__':
     try:

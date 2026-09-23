@@ -22,7 +22,7 @@ export interface Decision {
   districtId?: DistrictId | null;
 }
 
-// Коды нарушений — предложены Даниялом в DATA_CONTRACT.md, согласованы как общий формат.
+// Общие коды нарушений для движка, API и проверочных сценариев.
 export type ViolationCode =
   | "DECISION_COUNT"
   | "DUPLICATE_MEASURE"

@@ -1,4 +1,3 @@
-// Зона ответственности: Даниял.
 // Не дублировать формулу и правила — использовать только calculateScenario/validateScenario из "./engine".
 import { DISTRICTS, MEASURES } from "./data";
 import { calculateScenario } from "./engine";
