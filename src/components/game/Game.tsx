@@ -18,8 +18,10 @@ import {
   SYNERGIES,
   type Measure,
 } from "@/lib/data";
-import type { Decision } from "@/lib/engine";
+import type { Decision, ScenarioResult } from "@/lib/engine";
 import WorldCanvas from "./WorldCanvas";
+import { reportText } from "./reportText";
+import FinalReport from "./FinalReport";
 import ImpactAnalysis from "./ImpactAnalysis";
 import { BASELINE, costOf, planIssue, useGame } from "./useGame";
 import { useLocale, useStoredValue } from "./useLocale";
@@ -40,7 +42,6 @@ import {
   locationOf,
   MONEY_SCALE,
   money,
-  nonFinancialRussianExplanation,
   number,
   signed,
 } from "./presentation";
@@ -51,6 +52,8 @@ type Notice = { key: MessageKey; place?: PlaceId };
 export default function Game() {
   const { locale, setLocale, t } = useLocale();
   const game = useGame();
+  const [reportFor, setReportFor] = useState<ScenarioResult | null>(null);
+  const reportOpen = !!game.result && reportFor === game.result;
   const [near, setNear] = useState<PlaceId | null>("city");
   const [travel, setTravel] = useState<{ id: PlaceId; serial: number }>({
     id: "city",
@@ -150,9 +153,6 @@ export default function Game() {
           suggestion.scenario.cost) *
         100
       : 0;
-  const provider = game.explanation.data
-    ? nonFinancialRussianExplanation(game.explanation.data.explanation)
-    : null;
   const ruleKey = (first: string): MessageKey =>
     first === "M1"
       ? "conflictTransport"
@@ -175,7 +175,10 @@ export default function Game() {
           <span>{t("language")}</span>
           <select
             value={locale}
-            onChange={(e) => setLocale(e.target.value as Locale)}
+            onChange={(e) => {
+              game.invalidateExplanation();
+              setLocale(e.target.value as Locale);
+            }}
           >
             <option value="kk">Қазақша</option>
             <option value="ru">Русский</option>
@@ -256,7 +259,7 @@ export default function Game() {
             travel={travel}
             onNear={onNear}
             onInteract={open}
-            paused={!!visit}
+            paused={!!visit || reportOpen}
           />
           <div className={styles.mission}>
             <span className={styles.overline}>{t("mission")}</span>
@@ -391,6 +394,19 @@ export default function Game() {
               </>
             ) : result ? (
               <div className={styles.results}>
+                <button
+                  className={styles.primary}
+                  onClick={() => {
+                    setReportFor(result);
+                    if (game.explanation.status === "idle") {
+                      void game.request("explain", locale);
+                    }
+                    if (game.advisor.status === "idle")
+                      void game.request("improve");
+                  }}
+                >
+                  {reportText(locale)("open")} →
+                </button>
                 <p className={styles.overline}>{t("index")}</p>
                 <div className={styles.resultScore}>
                   <span>{number(BASELINE.score, locale)} →</span>
@@ -480,54 +496,6 @@ export default function Game() {
                     </div>
                   )}
                 </div>
-                <div className={styles.advisor}>
-                  <h3>{t("why")}</h3>
-                  <p className={styles.muted}>{t("aiLanguage")}</p>
-                  <button
-                    className={styles.secondary}
-                    disabled={game.explanation.status === "loading"}
-                    onClick={() => game.request("explain")}
-                  >
-                    {t(
-                      game.explanation.status === "loading"
-                        ? "explaining"
-                        : game.explanation.status === "error"
-                          ? "retry"
-                          : "explain",
-                    )}
-                  </button>
-                  {game.explanation.error && (
-                    <p role="alert" className={styles.error}>
-                      {issueText(game.explanation.error, locale)}
-                    </p>
-                  )}
-                  {game.explanation.data && (
-                    <>
-                      <p className={styles.source}>
-                        {t(
-                          game.explanation.data.source === "offline-template"
-                            ? "offline"
-                            : "aiReady",
-                        )}
-                      </p>
-                      {game.explanation.data.source === "offline-template" ? (
-                        <p className={styles.muted}>{t("offlineHelp")}</p>
-                      ) : (
-                        <>
-                          {provider?.hidden && (
-                            <p className={styles.muted}>{t("aiMoneyHidden")}</p>
-                          )}
-                          <details>
-                            <summary>{t("aiOriginal")}</summary>
-                            <p lang="ru" className={styles.explanation}>
-                              {provider?.text}
-                            </p>
-                          </details>
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
                 <details className={styles.technical}>
                   <summary>{t("details")}</summary>
                   <p>{t("parameters")}</p>
@@ -581,6 +549,14 @@ export default function Game() {
           </div>
         </aside>
       </div>
+      <FinalReport
+        game={game}
+        locale={locale}
+        open={reportOpen}
+        onOpen={() => setReportFor(game.result)}
+        onClose={() => setReportFor(null)}
+        onApply={(id) => navigate(id)}
+      />
       <footer className={styles.footer}>
         <span>HACKALEM · ASTANA INNOVATIONS</span>
         <p>{t("disclaimer")}</p>

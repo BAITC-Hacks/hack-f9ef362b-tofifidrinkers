@@ -136,7 +136,7 @@ const SYSTEM_PROMPT = `Ты — AI-советник акима в симулят
 
 export const PROVIDER_TIMEOUT_MS = 8_000;
 
-async function callAnthropic(summary: ExplainSummary): Promise<string> {
+export async function callAnthropic(summary: unknown, prompt = SYSTEM_PROMPT): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("no key");
   const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
@@ -150,8 +150,8 @@ async function callAnthropic(summary: ExplainSummary): Promise<string> {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 700,
-      system: SYSTEM_PROMPT,
+      max_tokens: prompt === SYSTEM_PROMPT ? 700 : 1800,
+      system: prompt,
       messages: [{ role: "user", content: JSON.stringify(summary) }],
     }),
   });
@@ -162,7 +162,7 @@ async function callAnthropic(summary: ExplainSummary): Promise<string> {
   return text;
 }
 
-async function callOpenAI(summary: ExplainSummary): Promise<string> {
+export async function callOpenAI(summary: unknown, prompt = SYSTEM_PROMPT): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("no key");
   const model = process.env.OPENAI_MODEL || "gpt-4o";
@@ -175,9 +175,9 @@ async function callOpenAI(summary: ExplainSummary): Promise<string> {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 700,
+      max_tokens: prompt === SYSTEM_PROMPT ? 700 : 1800,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: prompt },
         { role: "user", content: JSON.stringify(summary) },
       ],
     }),
