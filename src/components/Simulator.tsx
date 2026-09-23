@@ -2,14 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  BUDGET, DECISIONS_REQUIRED, DISTRICTS, HORIZON_QUARTERS, INDICATORS, MAX_PER_DIRECTION, MEASURES, MEASURE_MAP,
+  BUDGET, DECISIONS_REQUIRED, DISTRICTS, HORIZON_QUARTERS, INDICATORS, MAX_PER_DIRECTION, MEASURE_MAP,
 } from "@/lib/data";
-import type { Direction, DistrictId, Measure } from "@/lib/data";
+import type { Measure } from "@/lib/data";
 import { calculateScenario, computeBaseline } from "@/lib/engine";
 import type { Decision, ScenarioResult } from "@/lib/engine";
 import type { SwapSuggestion } from "@/lib/improve";
 
-const DIRECTIONS: Direction[] = ["Транспорт", "Экология", "Соцсфера", "Безопасность", "Сервисы"];
+import CityMap, { AkimPortrait } from "./CityMap";
+import type { Destination } from "./CityMap";
+import DistrictVisit from "./DistrictVisit";
 const EXAMPLE: Decision[] = [
   { measureId: "M7", districtId: "nura" },
   { measureId: "M8", districtId: "nura" },
@@ -78,6 +80,7 @@ function previewSwap(current: Decision[], response: ImproveResponse): SwapPrevie
 }
 
 export default function Simulator() {
+  const [destination, setDestination] = useState<Destination>(null);
   const [selection, setSelection] = useState<Selection>({});
   const [explanation, setExplanation] = useState<Explanation | null>(null);
   const [loadingExplain, setLoadingExplain] = useState(false);
@@ -122,16 +125,19 @@ export default function Simulator() {
     setSelection(toSelection(next));
   }
 
-  function toggleMeasure(measure: Measure) {
-    if (selection[measure.id]) {
-      updateDecisions(decisions.filter((d) => d.measureId !== measure.id));
-    } else if (decisions.length < DECISIONS_REQUIRED) {
-      updateDecisions([...decisions, { measureId: measure.id }]);
+  function fundMeasure(measure: Measure, place: Exclude<Destination, null>) {
+    const districtId = measure.scope === "Район" && place !== "city" ? place : undefined;
+    if (measure.scope === "Район" && !districtId) return;
+    const existing = selection[measure.id];
+    const decision: Decision = { measureId: measure.id, ...(districtId ? { districtId } : {}) };
+    if (existing && sameDecision(existing, decision)) {
+      updateDecisions(decisions.filter((d) => d.measureId !== measure.id), "Проект убран из плана. Бюджет возвращён.");
+      return;
     }
-  }
-
-  function setDistrictFor(measure: Measure, districtId?: DistrictId) {
-    updateDecisions(decisions.map((d) => d.measureId === measure.id ? { ...d, districtId } : d));
+    if (!existing && (decisions.length >= DECISIONS_REQUIRED || cost + measure.cost > BUDGET ||
+      decisions.filter((d) => MEASURE_MAP[d.measureId].direction === measure.direction).length >= MAX_PER_DIRECTION)) return;
+    const next = existing ? decisions.map((d) => d.measureId === measure.id ? decision : d) : [...decisions, decision];
+    updateDecisions(next, `${measure.name}: ${existing ? "перенесено" : "добавлено в план"} · ${districtLabel(decision)}.`);
   }
 
   async function requestExplanation() {
@@ -201,7 +207,10 @@ export default function Simulator() {
     if (!improvement?.suggestion) return;
     try {
       const preview = previewSwap(decisions, improvement);
-      if (preview) updateDecisions(preview.decisions, "Замена применена. Результат пересчитан; объяснение и рекомендацию можно запросить заново.");
+      if (preview) {
+        updateDecisions(preview.decisions, "Замена применена. Результат пересчитан; объяснение и рекомендацию можно запросить заново.");
+        setDestination(improvement.suggestion.added.districtId ?? "city");
+      }
     } catch (error) {
       setImprovement(null);
       setImproveError(error instanceof Error ? error.message : "Не удалось применить замену.");
@@ -209,125 +218,50 @@ export default function Simulator() {
   }
 
   return (
-    <main lang="ru" className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
+    <main lang="ru" className="game-shell">
       <Header cost={cost} count={decisions.length}
-        onReset={() => updateDecisions([])}
-        onExample={() => updateDecisions(EXAMPLE, "Пример загружен и рассчитан. Попробуйте улучшить его одной заменой.")} />
-      <p className="sr-only" role="status">{notice}</p>
-      {notice && <p className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">{notice}</p>}
+        onReset={() => { updateDecisions([]); setDestination(null); }}
+        onExample={() => { updateDecisions(EXAMPLE, "Пример загружен и рассчитан. Попробуйте улучшить его одной заменой."); setDestination("nura"); }} />
+      <div className="game-intro">
+        <div><p className="eyebrow">ВАШ ПЕРВЫЙ ДЕНЬ В РОЛИ АКИМА</p><h1>Ваш город. Ваши решения.</h1><p>Гуляйте по районам, помогайте жителям и создавайте Астану, в которой хочется жить.</p></div>
+        <div className="game-mission"><span className="mission-label">ПЛАН НА СЕГОДНЯ</span><div className="decision-dots" aria-label={`Выбрано ${decisions.length} из ${DECISIONS_REQUIRED} решений`}>{Array.from({ length: DECISIONS_REQUIRED }, (_, i) => <span key={i} className={i < decisions.length ? "filled" : ""}>{i < decisions.length ? "✓" : i + 1}</span>)}</div><p>Пять решений, которые меняют город</p></div>
+      </div>
+      <div className="game-workspace">
+        <CityMap destination={destination} decisions={decisions} onVisit={setDestination} />
+        <DistrictVisit key={destination ?? "welcome"} destination={destination} decisions={decisions} cost={cost}
+          onFund={fundMeasure} onVisit={setDestination} onLeave={() => setDestination(null)} />
+      </div>
+      <p className="game-notice" role="status">{notice ?? "Начните с прогулки: выберите район на карте или воспользуйтесь готовым примером."}</p>
+      <div className="game-plan">
+        <SelectionPanel decisions={decisions} reason={reason} valid={Boolean(scenario)}
+          onRemove={(decision) => updateDecisions(decisions.filter((d) => !sameDecision(d, decision)))} />
+        <div className="plan-note"><div className="plan-avatar"><AkimPortrait /></div><div><span className="eyebrow">СЛОВО АКИМА</span><h2>Каждое решение имеет значение</h2><p>У города общий бюджет. На одно направление можно выбрать максимум две инициативы. Эффекты оцениваются за {HORIZON_QUARTERS} кварталов.</p>{scenario ? <a href="#results" className="game-primary">Посмотреть, что изменилось ↓</a> : <p className="plan-progress">До результата: ещё {Math.max(0, DECISIONS_REQUIRED - decisions.length)} решений{decisions.length === DECISIONS_REQUIRED ? ". Исправьте замечания к плану." : "."}</p>}</div></div>
+      </div>
       {scenario && <ResultsPanel scenario={scenario} explanation={explanation} loadingExplain={loadingExplain}
         explainError={explainError} onExplain={requestExplanation} improvement={improvement}
         loadingImprove={loadingImprove} improveError={improveError} onImprove={requestImprove} onApply={applySuggestion} />}
-      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="flex min-w-0 flex-col gap-6">
-          <div>
-            <h2 className="text-xl font-bold">Выберите городские инициативы</h2>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Ровно 5 решений, максимум 2 в одном направлении. Расчёт обновляется автоматически.</p>
-          </div>
-          {DIRECTIONS.map((direction) => <DirectionSection key={direction} direction={direction} selection={selection}
-            onToggle={toggleMeasure} onDistrictChange={setDistrictFor} decisionsFull={decisions.length >= DECISIONS_REQUIRED} />)}
-        </div>
-        <aside className="lg:sticky lg:top-6 lg:self-start">
-          <SelectionPanel decisions={decisions} reason={reason} valid={Boolean(scenario)}
-            onRemove={(decision) => updateDecisions(decisions.filter((d) => !sameDecision(d, decision)))} />
-        </aside>
-      </div>
-      <details className="min-w-0 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-        <summary className="cursor-pointer font-semibold">Исходные данные районов и показатели</summary>
+      <details className="game-reference">
+        <summary>Заглянуть в городскую статистику</summary>
         <ReferenceTable />
       </details>
-      <footer className="border-t border-zinc-200 pt-5 text-sm leading-relaxed text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
-        Учебная симуляция на синтетических данных. Результаты не являются прогнозом реального развития города.
-      </footer>
+      <footer className="game-footer"><span>Аким на 5 часов · Astana Innovations</span><p>Учебная симуляция на синтетических данных. Результаты не являются прогнозом реального развития города.</p></footer>
     </main>
   );
 }
 
 function Header({ cost, count, onReset, onExample }: { cost: number; count: number; onReset: () => void; onExample: () => void }) {
-  return (
-    <header className="flex flex-col gap-5 border-b border-zinc-200 pb-6 dark:border-zinc-800">
-      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
-        <div className="max-w-2xl">
-          <p className="text-xs font-bold uppercase tracking-widest text-blue-700 dark:text-blue-400">Astana Innovations · HackAlem AI</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Аким на 5 часов</h1>
-          <p className="mt-3 leading-relaxed text-zinc-600 dark:text-zinc-300">Распределите бюджет между инициативами и узнайте, как ваши решения меняют качество жизни в пяти районах Астаны.</p>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <button className={primaryButton} onClick={onExample}>Загрузить пример</button>
-          <button className={button} onClick={onReset}>Сбросить</button>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-3" aria-live="polite">
-        <Pill label="Бюджет" value={`${cost} / ${BUDGET} у.е.`} danger={cost > BUDGET} />
-        <Pill label="Решения" value={`${count} / ${DECISIONS_REQUIRED}`} />
-        <span className="text-sm text-zinc-600 dark:text-zinc-400">Эффекты за {HORIZON_QUARTERS} кварталов</span>
-      </div>
-    </header>
-  );
-}
-
-function Pill({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
-  return <div className={`rounded-lg px-3 py-2 text-sm font-semibold ${danger ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200" : "bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100"}`}><span className="font-normal">{label}:</span> {value}</div>;
-}
-
-function DirectionSection({ direction, selection, onToggle, onDistrictChange, decisionsFull }: {
-  direction: Direction; selection: Selection; onToggle: (m: Measure) => void;
-  onDistrictChange: (m: Measure, districtId?: DistrictId) => void; decisionsFull: boolean;
-}) {
-  const measures = MEASURES.filter((m) => m.direction === direction);
-  const count = measures.filter((m) => selection[m.id]).length;
-  return (
-    <section aria-label={direction}>
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-lg font-semibold">{direction}</h3>
-        <span className={`text-xs font-medium ${count > MAX_PER_DIRECTION ? "text-red-700 dark:text-red-300" : "text-zinc-600 dark:text-zinc-400"}`}>{count} / {MAX_PER_DIRECTION} макс.</span>
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {measures.map((measure) => <MeasureCard key={measure.id} measure={measure} decision={selection[measure.id]}
-          disabled={!selection[measure.id] && decisionsFull} onToggle={onToggle} onDistrictChange={onDistrictChange} />)}
-      </div>
-    </section>
-  );
-}
-
-function MeasureCard({ measure, decision, disabled, onToggle, onDistrictChange }: {
-  measure: Measure; decision?: Decision; disabled: boolean; onToggle: (m: Measure) => void;
-  onDistrictChange: (m: Measure, districtId?: DistrictId) => void;
-}) {
-  const selected = Boolean(decision);
-  return (
-    <div className={`flex flex-col gap-3 rounded-xl border p-4 transition-colors ${selected
-      ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40" : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"}`}>
-      <button type="button" aria-pressed={selected} disabled={disabled} onClick={() => onToggle(measure)}
-        className="flex flex-1 items-start justify-between gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50">
-        <span>
-          <span className="block text-sm font-semibold leading-snug">{measure.id} · {measure.name}</span>
-          <span className="mt-2 block text-xs text-zinc-600 dark:text-zinc-400">{measure.scope} · {measure.cost} у.е. · задержка {measure.lag} кв.</span>
-        </span>
-        <span aria-hidden="true" className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs ${selected ? "border-blue-700 bg-blue-700 text-white" : "border-zinc-400"}`}>{selected ? "✓" : ""}</span>
-      </button>
-      <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">Полный эффект до учёта задержки: {measure.effects.map((e) => `${INDICATORS.find((i) => i.code === e.indicator)?.name ?? e.indicator} ${e.amount > 0 ? "+" : ""}${e.amount}`).join("; ")}.</p>
-      {selected && measure.scope === "Район" && (
-        <label className="flex flex-col gap-1.5 text-xs font-medium">
-          Район для {measure.id}
-          <select aria-invalid={!decision?.districtId} value={decision?.districtId ?? ""}
-            onChange={(e) => onDistrictChange(measure, (e.target.value || undefined) as DistrictId | undefined)}
-            className={`min-h-11 w-full rounded-lg border bg-white px-3 py-2 text-sm dark:bg-zinc-900 ${decision?.districtId ? "border-zinc-300 dark:border-zinc-700" : "border-amber-600"}`}>
-            <option value="">Выберите район</option>
-            {DISTRICTS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
-          {!decision?.districtId && <span className="text-amber-800 dark:text-amber-300">Для расчёта нужен район.</span>}
-        </label>
-      )}
-    </div>
-  );
+  return <header className="game-topbar">
+    <a className="game-brand" href="#" aria-label="Аким на 5 часов, в начало"><span className="brand-mark" aria-hidden="true"><i /><i /><i /></span><span>аким<small>на 5 часов</small></span></a>
+    <div className="game-hud" aria-live="polite"><div className={`hud-budget ${cost > BUDGET ? "is-over" : ""}`}><span className="coin-icon" aria-hidden="true">₸</span><div><span>Бюджет города</span><strong>{BUDGET - cost} <small>у.е.</small></strong><span className="hud-used">Потрачено {cost} / {BUDGET} у.е.</span></div></div><div className="hud-decisions"><span>Решения</span><strong>{count}<small> / {DECISIONS_REQUIRED}</small></strong></div></div>
+    <div className="game-actions"><button onClick={onExample}>Загрузить пример</button><button className="reset-game" onClick={onReset}>Сбросить</button><div className="header-portrait"><AkimPortrait /></div></div>
+  </header>;
 }
 
 function SelectionPanel({ decisions, reason, valid, onRemove }: { decisions: Decision[]; reason: string | null; valid: boolean; onRemove: (d: Decision) => void }) {
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950" aria-label="Ваши решения">
-      <h2 className="text-lg font-semibold">Ваши решения</h2>
-      {decisions.length === 0 && <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">Выберите инициативы или загрузите готовый пример, чтобы начать.</p>}
+    <section className="plan-list" aria-label="Ваши решения">
+      <div className="plan-list-title"><h2>План развития города</h2><span>{decisions.length} / {DECISIONS_REQUIRED}</span></div>
+      {decisions.length === 0 && <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">Здесь появятся проекты, которые вы выберете во время прогулки по районам.</p>}
       <ul className="mt-4 flex flex-col gap-4">
         {decisions.map((d) => <li key={d.measureId} className="flex items-start gap-2 text-sm">
           <div className="flex-1"><p className="font-medium">{d.measureId} · {MEASURE_MAP[d.measureId].name}</p><p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{districtLabel(d)} · {MEASURE_MAP[d.measureId].cost} у.е.</p></div>
@@ -349,7 +283,7 @@ function ResultsPanel({ scenario, explanation, loadingExplain, explainError, onE
   const delta = scenario.score - BASELINE.score;
   const suggestion = improvement?.suggestion;
   return (
-    <section id="results" aria-label="Результат сценария" className="flex flex-col gap-6 rounded-2xl border border-blue-200 bg-blue-50/50 p-4 dark:border-blue-900 dark:bg-blue-950/20 sm:p-6">
+    <section id="results" aria-label="Результат сценария" className="game-results flex flex-col gap-6">
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
         <div>
           <h2 className="text-lg font-semibold">Результат сценария</h2>
