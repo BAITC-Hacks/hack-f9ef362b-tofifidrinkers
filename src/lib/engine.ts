@@ -107,12 +107,27 @@ function countCritical(districtsValues: Record<DistrictId, Record<IndicatorCode,
 }
 
 export function validateScenario(decisions: Decision[]): ValidationResult {
+  // HTTP JSON is not type-checked by TypeScript at runtime.
+  if (!Array.isArray(decisions)) {
+    return { valid: false, code: "DECISION_COUNT", reason: "Решения должны быть массивом из пяти мероприятий." };
+  }
   if (decisions.length !== DECISIONS_REQUIRED) {
     return {
       valid: false,
       code: "DECISION_COUNT",
       reason: `Нужно выбрать ровно ${DECISIONS_REQUIRED} решений, выбрано ${decisions.length}.`,
     };
+  }
+
+  for (const decision of decisions) {
+    if (!decision || typeof decision !== "object" || Array.isArray(decision) ||
+        typeof decision.measureId !== "string" ||
+        !Object.prototype.hasOwnProperty.call(MEASURE_MAP, decision.measureId)) {
+      return { valid: false, code: "UNKNOWN_MEASURE", reason: "Каждое решение должно содержать известный идентификатор мероприятия." };
+    }
+    if (decision.districtId != null && typeof decision.districtId !== "string") {
+      return { valid: false, code: "UNKNOWN_DISTRICT", reason: "Район должен быть строковым идентификатором либо null." };
+    }
   }
 
   const seen = new Set<MeasureId>();
@@ -324,3 +339,4 @@ export function calculateScenario(decisions: Decision[]): ScenarioOutcome {
 export function computeBaseline(): ScenarioResult {
   return calculateRaw([]);
 }
+
