@@ -17,6 +17,7 @@ import {
 } from "@/lib/engine";
 import type { SwapSuggestion } from "@/lib/improve";
 import type { ExplanationResult } from "@/lib/explain";
+import { engineIssue, type Issue } from "./presentation";
 
 export const EXAMPLE: Decision[] = [
   { measureId: "M7", districtId: "nura" },
@@ -31,47 +32,51 @@ export const costOf = (decisions: Decision[]) =>
 export const sameDecision = (a: Decision, b: Decision) =>
   a.measureId === b.measureId &&
   (a.districtId ?? null) === (b.districtId ?? null);
-export const locationOf = (d: Decision) =>
-  DISTRICTS.find((district) => district.id === d.districtId)?.name ??
-  "Весь город";
 /** Partial-plan feedback from dataset constraints. Final authority is calculateScenario. */
-export function planIssue(decisions: Decision[]): string | null {
+export function planIssue(decisions: Decision[]): Issue | null {
   if (decisions.length > DECISIONS_REQUIRED)
-    return `В плане уже ${DECISIONS_REQUIRED} решений. Сначала отмените одно.`;
+    return { key: "tooMany", count: DECISIONS_REQUIRED };
   if (new Set(decisions.map((d) => d.measureId)).size !== decisions.length)
-    return "Мера уже выбрана. Отмените её, чтобы перенести в другой район.";
+    return { key: "duplicate" };
   for (const d of decisions)
     if (
       MEASURE_MAP[d.measureId].scope === "Район" &&
       !DISTRICTS.some((district) => district.id === d.districtId)
     )
-      return "Выберите район для этой меры.";
+      return { key: "districtRequired" };
   if (costOf(decisions) > BUDGET)
-    return `Не хватает ${costOf(decisions) - BUDGET} у.е. бюджета. Отмените или замените решение.`;
+    return { key: "insufficient", amount: costOf(decisions) - BUDGET };
   const counts: Record<string, number> = {};
   for (const d of decisions) {
     const direction = MEASURE_MAP[d.measureId].direction;
     counts[direction] = (counts[direction] ?? 0) + 1;
     if (counts[direction] > MAX_PER_DIRECTION)
-      return `В направлении «${direction}» допустимо не более ${MAX_PER_DIRECTION} решений.`;
+      return { key: "directionLimit", direction, count: MAX_PER_DIRECTION };
   }
   for (const rule of INCOMPATIBILITIES) {
     const a = decisions.find((d) => d.measureId === rule.pair[0]),
       b = decisions.find((d) => d.measureId === rule.pair[1]);
     if (a && b && (!rule.sameDistrictOnly || a.districtId === b.districtId))
-      return rule.reason;
+      return {
+        key:
+          rule.pair[0] === "M1"
+            ? "conflictTransport"
+            : rule.pair[0] === "M4"
+              ? "conflictLand"
+              : "conflictHeat",
+      };
   }
   return null;
 }
 type RequestState<T> = {
   status: "idle" | "loading" | "ready" | "error";
   data?: T;
-  error?: string;
+  error?: Issue;
 };
 export function useGame() {
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [result, setResult] = useState<ScenarioResult | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Issue | null>(null);
   const [advisor, setAdvisor] = useState<RequestState<SwapSuggestion | null>>({
     status: "idle",
   });
@@ -89,7 +94,7 @@ export function useGame() {
     setResult(null);
     setAdvisor({ status: "idle" });
     setExplanation({ status: "idle" });
-    setError("");
+    setError(null);
   }, []);
   useEffect(
     () => () => {
@@ -115,7 +120,7 @@ export function useGame() {
     invalidate();
     const scenario = calculateScenario(next);
     if (!scenario.valid) {
-      setError(scenario.reason ?? "Не удалось рассчитать сценарий.");
+      setError(engineIssue(scenario.code, next));
       return false;
     }
     setResult(scenario);
@@ -156,15 +161,13 @@ export function useGame() {
           throw new Error("Не удалось прочитать объяснение.");
         setExplanation({ status: "ready", data });
       }
-    } catch (e) {
+    } catch {
       if (version !== revision.current) return;
-      const message = controller.signal.aborted
-        ? "Сервис не ответил вовремя. Попробуйте ещё раз."
-        : e instanceof Error
-          ? e.message
-          : "Ошибка запроса. Попробуйте ещё раз.";
-      if (kind === "improve") setAdvisor({ status: "error", error: message });
-      else setExplanation({ status: "error", error: message });
+      const issue: Issue = {
+        key: controller.signal.aborted ? "timeout" : "serviceError",
+      };
+      if (kind === "improve") setAdvisor({ status: "error", error: issue });
+      else setExplanation({ status: "error", error: issue });
     } finally {
       clearTimeout(timeout);
       if (active.current[kind] === controller) delete active.current[kind];
@@ -179,14 +182,14 @@ export function useGame() {
     if (index < 0) {
       setAdvisor({
         status: "error",
-        error: "Решение для замены уже изменилось. Повторите поиск.",
+        error: { key: "stale" },
       });
       return null;
     }
     const next = decisions.map((d, i) => (i === index ? suggestion.added : d));
     const scenario = calculateScenario(next);
     if (!scenario.valid) {
-      setAdvisor({ status: "error", error: scenario.reason });
+      setAdvisor({ status: "error", error: engineIssue(scenario.code, next) });
       return null;
     }
     change(next);

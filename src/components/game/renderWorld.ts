@@ -1,9 +1,19 @@
-import { DISTRICTS, MEASURE_MAP } from "@/lib/data";
+import { MEASURE_MAP } from "@/lib/data";
 import type { Decision, DistrictOutcome, ScenarioResult } from "@/lib/engine";
 import { PALETTE as P, SPRITES, type PixelMatrix } from "../pixelSprites";
-import { PLACES, project, isRoad, type Point, type PlaceId } from "./world";
+import {
+  PLACES,
+  project,
+  isRoad,
+  BUILDINGS,
+  type Point,
+  type PlaceId,
+} from "./world";
+
+import { districtName, translator, type Locale } from "./i18n";
 
 export type WorldData = {
+  locale: Locale;
   districts: DistrictOutcome[];
   decisions: Decision[];
   calculated: boolean;
@@ -187,40 +197,38 @@ export function renderWorld(
     ctx.fillRect(v.x - 2, v.y - 2, 4, 4);
   });
   const objects: { depth: number; draw: () => void }[] = [];
-  // Buildings only occupy blocks off the road graph, so collisions and visuals agree.
-  for (const x of [5, 10, 15, 20])
-    for (const y of [5, 10, 15, 20]) {
-      if (x === 10 && y === 10) continue;
-      const variant = (x * 3 + y) % 3;
-      objects.push({
-        depth: x + y + 3,
-        draw: () => {
-          const height =
-            32 + ((Math.floor(x / 5) * 3 + Math.floor(y / 5) * 2) % 5) * 17;
-          const hero = project(player),
-            left = project({ x, y: y + 1.5 }),
-            right = project({ x: x + 1.6, y }),
-            front = project({ x: x + 1.6, y: y + 1.5 });
-          // Fade foreground walls when they would obscure the mayor on the road behind.
-          ctx.save();
-          if (
-            hero.x > left.x - 12 &&
-            hero.x < right.x + 12 &&
-            hero.y > project({ x, y }).y - height &&
-            hero.y - 35 < front.y &&
-            player.x + player.y < x + y + 3
-          )
-            ctx.globalAlpha = 0.32;
-          building(ctx, x, y, 1.6, 1.5, height, variant, reduced ? 0 : time);
-          ctx.restore();
-        },
-      });
-      objects.push({ depth: x + y + 1, draw: () => tree(ctx, x - 1, y + 1) });
-      objects.push({
-        depth: x + y + 4,
-        draw: () => tree(ctx, x + 2.5, y + 1.5),
-      });
-    }
+  // Shared footprints keep the painted buildings and collision mesh aligned.
+  for (const { x, y } of BUILDINGS) {
+    const variant = (x * 3 + y) % 3;
+    objects.push({
+      depth: x + y + 3,
+      draw: () => {
+        const height =
+          32 + ((Math.floor(x / 5) * 3 + Math.floor(y / 5) * 2) % 5) * 17;
+        const hero = project(player),
+          left = project({ x, y: y + 1.5 }),
+          right = project({ x: x + 1.6, y }),
+          front = project({ x: x + 1.6, y: y + 1.5 });
+        // Fade foreground walls when they would obscure the mayor on the road behind.
+        ctx.save();
+        if (
+          hero.x > left.x - 12 &&
+          hero.x < right.x + 12 &&
+          hero.y > project({ x, y }).y - height &&
+          hero.y - 35 < front.y &&
+          player.x + player.y < x + y + 3
+        )
+          ctx.globalAlpha = 0.32;
+        building(ctx, x, y, 1.6, 1.5, height, variant, reduced ? 0 : time);
+        ctx.restore();
+      },
+    });
+    objects.push({ depth: x + y + 1, draw: () => tree(ctx, x - 1, y + 1) });
+    objects.push({
+      depth: x + y + 4,
+      draw: () => tree(ctx, x + 2.5, y + 1.5),
+    });
+  }
   // Public amenities and lamps share the same palette and road-free lots.
   for (const point of [
     { x: 8, y: 6 },
@@ -290,7 +298,7 @@ export function renderWorld(
             const p = project(place);
             label(
               ctx,
-              `${data.calculated ? "УЧТЕНО" : "В ПЛАНЕ"}: ${cityProjects.map((d) => d.measureId).join(" · ")}`,
+              translator(data.locale)(data.calculated ? "funded" : "planned"),
               p.x,
               p.y + 65,
               data.calculated ? P[8] : P[11],
@@ -326,7 +334,7 @@ export function renderWorld(
           ctx.strokeRect(p.x - 39, p.y - 66, 78, 96);
           label(
             ctx,
-            data.calculated ? "ПРОЕКТЫ УЧТЕНЫ" : "В ПЛАНЕ",
+            translator(data.locale)(data.calculated ? "funded" : "planned"),
             p.x,
             p.y + 45,
             data.calculated ? P[8] : P[11],
@@ -413,8 +421,8 @@ export function renderWorld(
     label(
       ctx,
       id === "city"
-        ? "АКИМАТ"
-        : DISTRICTS.find((d) => d.id === id)!.name.toUpperCase(),
+        ? translator(data.locale)("city")
+        : districtName(id, data.locale),
       p.x,
       p.y + 35,
     );
@@ -428,13 +436,7 @@ export function renderWorld(
           p.y - 83 - (reduced ? 0 : Math.round(Math.sin(time / 350) * 3)),
           3,
         );
-        label(
-          ctx,
-          critical.map((i) => i.indicator).join(" · "),
-          p.x,
-          p.y - 92,
-          P[13],
-        );
+        label(ctx, `! ${critical.length}`, p.x, p.y - 92, P[13]);
       }
       if (data.synergies.some((s) => s.district === district.name))
         sprite(ctx, SPRITES.synergy.thriving, p.x + 32, p.y - 60, 3);

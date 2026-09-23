@@ -1127,3 +1127,231 @@
     scroll-behavior: auto !important;
   }
 }
+
+.language {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+.language select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--edge);
+  padding: 10px;
+  min-height: 44px;
+  border-radius: 4px;
+}
+.language select:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 3px;
+}
+.moneyNote {
+  font-size: 11px;
+  color: var(--muted);
+  border-left: 2px solid var(--lime);
+  padding: 8px 12px;
+  margin-bottom: 16px !important;
+}
+.budgetBlock {
+  width: auto;
+  min-width: 200px;
+}
+.budgetNumber {
+  display: block;
+  font-size: clamp(16px, 2vw, 28px);
+}
+.hudStat .moneyAmount {
+  font-size: clamp(14px, 1.7vw, 24px);
+}
+.purchase strong {
+  display: block;
+  font-size: clamp(16px, 2.4vw, 24px);
+  overflow-wrap: anywhere;
+}
+.projectHeading {
+  flex-wrap: wrap;
+}
+.projectHeading > strong {
+  font-size: 14px;
+}
+.projectHeading .overline {
+  font-size: 9px;
+}
+.analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--edge);
+  font-size: 12px;
+}
+.analysis h4 {
+  font-weight: 700;
+}
+.allocationRow > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 5px;
+}
+.allocationRow b {
+  font: 12px monospace;
+  color: var(--lime);
+}
+.allocationBar {
+  height: 5px;
+  background: var(--edge);
+}
+.allocationBar span {
+  display: block;
+  height: 5px;
+  background: var(--blue);
+}
+.analysisNote {
+  border-left: 2px solid var(--lime);
+  padding: 10px;
+  background: #c8ce8108;
+  line-height: 1.8;
+}
+.analysisNote p + p {
+  margin-top: 8px;
+}
+.districtImpact {
+  border-bottom: 1px solid var(--edge);
+  padding-bottom: 10px;
+  line-height: 1.8;
+}
+.districtImpact > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.districtImpact p {
+  font-size: 11px;
+  color: var(--muted);
+}
+.technical {
+  font-size: 11px;
+  line-height: 1.8;
+  margin: 8px 0;
+  color: var(--muted);
+}
+.technical summary {
+  cursor: pointer;
+  min-height: 36px;
+  padding: 8px 0;
+}
+.technical summary:focus-visible {
+  outline: 2px solid var(--blue);
+}
+.tutorial {
+  position: absolute;
+  z-index: 4;
+  top: 78px;
+  right: 16px;
+  width: min(290px, 70%);
+  padding: 14px;
+  background: #111b2bf2;
+  border: 1px solid var(--lime);
+  font-size: 12px;
+  line-height: 1.7;
+  box-shadow: 0 8px 25px #0006;
+}
+.tutorial button {
+  margin-top: 10px;
+  min-height: 44px;
+}
+.confirmActions {
+  flex-wrap: wrap;
+}
+.confirmActions > .primary {
+  flex: 1;
+}
+.results .advisor > p {
+  font-size: 12px;
+  line-height: 1.8;
+}
+.hud {
+  flex-wrap: wrap;
+}
+.hudStatus {
+  max-width: 320px;
+}
+@media (max-width: 760px) {
+  .header {
+    height: auto;
+    min-height: 100px;
+    flex-wrap: wrap;
+    padding: 12px 0;
+  }
+  .language {
+    margin-left: auto;
+  }
+  .language > span {
+    display: none;
+  }
+  .header > .secondary {
+    flex: 1;
+  }
+  .hud {
+    grid-template-columns: 1fr 1fr;
+  }
+  .budgetBlock {
+    min-width: 0;
+  }
+  .hudStat {
+    padding-left: 10px;
+  }
+  .hudStatus {
+    max-width: none;
+  }
+  .budgetNumber {
+    font-size: 18px;
+  }
+  .hudStat .moneyAmount {
+    font-size: 16px;
+  }
+  .hudStat:nth-child(3) {
+    grid-column: 1/-1;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    border: 0;
+    padding: 0;
+  }
+  .hudStat:nth-child(3) > strong {
+    font-size: 20px;
+  }
+  .tutorial {
+    top: 72px;
+    right: 12px;
+    max-width: 65%;
+  }
+  .mission {
+    display: none;
+  }
+  .projectHeading > strong {
+    font-size: 16px;
+  }
+  .purchase {
+    gap: 10px;
+    padding: 12px;
+  }
+  .purchase strong {
+    font-size: 16px;
+  }
+  .confirmActions > .primary {
+    font-size: 11px;
+  }
+  .locationNotice {
+    max-width: 90%;
+  }
+  .moneyNote {
+    font-size: 10px;
+  }
+  .language select {
+    max-width: 135px;
+  }
+}

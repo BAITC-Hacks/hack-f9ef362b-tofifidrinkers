@@ -5,7 +5,8 @@ import { renderWorld, type WorldData } from "./renderWorld";
 import {
   distance,
   nearbyPlace,
-  neighbours,
+  moveScreen,
+  WALK_SPEED,
   PLACES,
   project,
   route,
@@ -14,6 +15,7 @@ import {
   type Point,
 } from "./world";
 import styles from "./game.module.css";
+import { translator } from "./i18n";
 
 export default function WorldCanvas({
   data,
@@ -28,6 +30,7 @@ export default function WorldCanvas({
   onInteract: () => void;
   paused: boolean;
 }) {
+  const t = translator(data.locale);
   const canvas = useRef<HTMLCanvasElement>(null);
   const player = useRef<Point>({ ...PLACES.city });
   const path = useRef<Point[]>([]),
@@ -39,12 +42,7 @@ export default function WorldCanvas({
     if (paused) keys.current.clear();
   }, [data, onNear, onInteract, paused]);
   useEffect(() => {
-    // Finish the current road edge before changing route, never cut a corner through a block.
-    const anchor = path.current[0] ?? player.current;
-    path.current = [
-      ...(distance(player.current, anchor) > 0.01 ? [anchor] : []),
-      ...route(anchor, PLACES[travel.id]),
-    ];
+    path.current = route(player.current, PLACES[travel.id]);
   }, [travel]);
   useEffect(() => {
     const element = canvas.current;
@@ -80,45 +78,32 @@ export default function WorldCanvas({
       const dt = Math.min((time - (previous || time)) / 1000, 0.05);
       previous = time;
       const movingAllowed = !callbacks.current.paused;
-      if (!path.current.length && keys.current.size && movingAllowed) {
-        let dx = 0,
-          dy = 0;
-        for (const key of keys.current) {
-          if (["arrowleft", "a", "ф"].includes(key)) dx--;
-          if (["arrowright", "d", "в"].includes(key)) dx++;
-          if (["arrowup", "w", "ц"].includes(key)) dy--;
-          if (["arrowdown", "s", "ы"].includes(key)) dy++;
-        }
-        const start = {
-          x: Math.round(player.current.x),
-          y: Math.round(player.current.y),
-        };
-        const options = neighbours(start)
-          .map((p) => {
-            const v = project({ x: p.x - start.x, y: p.y - start.y });
-            return { p, dot: v.x * dx + v.y * dy };
-          })
-          .sort((a, b) => b.dot - a.dot);
-        if (options[0]?.dot > 0) path.current = [options[0].p];
+      let dx = 0,
+        dy = 0;
+      for (const key of keys.current) {
+        if (["arrowleft", "a", "ф"].includes(key)) dx--;
+        if (["arrowright", "d", "в"].includes(key)) dx++;
+        if (["arrowup", "w", "ц"].includes(key)) dy--;
+        if (["arrowdown", "s", "ы"].includes(key)) dy++;
       }
-      const target = movingAllowed ? path.current[0] : undefined;
-      if (target) {
-        const d = distance(player.current, target),
-          speed = 6 * dt;
-        const screenDirection = project({
-          x: target.x - player.current.x,
-          y: target.y - player.current.y,
-        }).x;
-        if (Math.abs(screenDirection) > 0.01)
-          facing = screenDirection > 0 ? 1 : -1;
-        if (d <= speed) {
-          player.current = { ...target };
+      const before = { ...player.current };
+      if (movingAllowed && (dx || dy)) {
+        path.current = [];
+        player.current = moveScreen(player.current, { x: dx, y: dy }, dt);
+      } else if (movingAllowed && path.current[0]) {
+        const target = path.current[0],
+          from = project(player.current),
+          to = project(target);
+        const direction = { x: to.x - from.x, y: to.y - from.y };
+        if (Math.hypot(direction.x, direction.y) <= WALK_SPEED * dt) {
+          player.current = target;
           path.current.shift();
-        } else {
-          player.current.x += ((target.x - player.current.x) / d) * speed;
-          player.current.y += ((target.y - player.current.y) / d) * speed;
-        }
+        } else player.current = moveScreen(player.current, direction, dt);
       }
+      const moving = distance(before, player.current) > 0.0001;
+      const screenDirection = project(player.current).x - project(before).x;
+      if (Math.abs(screenDirection) > 0.001)
+        facing = screenDirection > 0 ? 1 : -1;
       const near = nearbyPlace(player.current);
       if (near !== lastNear) {
         lastNear = near;
@@ -138,7 +123,7 @@ export default function WorldCanvas({
           camera,
           player.current,
           facing,
-          !!target,
+          moving,
           time,
           callbacks.current.data,
           path.current,
@@ -156,11 +141,7 @@ export default function WorldCanvas({
         x: (event.clientX - rect.left - width / 2) / camera.zoom + camera.x,
         y: (event.clientY - rect.top - height / 2) / camera.zoom + camera.y,
       });
-      const anchor = path.current[0] ?? player.current;
-      path.current = [
-        ...(distance(player.current, anchor) > 0.01 ? [anchor] : []),
-        ...route(anchor, point),
-      ];
+      path.current = route(player.current, point);
     };
     const down = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
@@ -182,7 +163,7 @@ export default function WorldCanvas({
       ) {
         event.preventDefault();
         keys.current.add(key);
-        path.current = path.current.slice(0, 1);
+        path.current = [];
       }
       if (["e", "у", "enter"].includes(key)) {
         event.preventDefault();
@@ -223,14 +204,14 @@ export default function WorldCanvas({
         ref={canvas}
         className={styles.canvas}
         tabIndex={0}
-        aria-label="Город. Нажмите на дорогу или используйте WASD и стрелки для движения. E — открыть объект рядом."
+        aria-label={t("controls")}
       />
       {unavailable && (
         <p className={styles.canvasError} role="alert">
-          Браузер не поддерживает Canvas. Для игры нужен браузер с Canvas 2D.
+          {t("canvasError")}
         </p>
       )}
-      <div className={styles.dpad} aria-label="Движение персонажа">
+      <div className={styles.dpad} aria-label={t("controlsShort")}>
         {[
           ["↑", "arrowup"],
           ["←", "arrowleft"],
@@ -240,12 +221,12 @@ export default function WorldCanvas({
           <button
             type="button"
             key={key}
-            aria-label={`Двигаться ${label}`}
+            aria-label={t("move", { arrow: label })}
             disabled={paused}
             onPointerDown={(e) => {
               e.currentTarget.setPointerCapture(e.pointerId);
               keys.current.add(key);
-              path.current = path.current.slice(0, 1);
+              path.current = [];
             }}
             onPointerUp={() => keys.current.delete(key)}
             onPointerCancel={() => keys.current.delete(key)}

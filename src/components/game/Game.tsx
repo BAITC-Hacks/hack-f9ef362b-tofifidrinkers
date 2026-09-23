@@ -1,5 +1,4 @@
 "use client";
-
 import {
   useCallback,
   useEffect,
@@ -14,7 +13,6 @@ import {
   DISTRICTS,
   HORIZON_QUARTERS,
   INCOMPATIBILITIES,
-  INDICATORS,
   MEASURES,
   MEASURE_MAP,
   SYNERGIES,
@@ -22,24 +20,36 @@ import {
 } from "@/lib/data";
 import type { Decision } from "@/lib/engine";
 import WorldCanvas from "./WorldCanvas";
-import { BASELINE, costOf, locationOf, planIssue, useGame } from "./useGame";
+import ImpactAnalysis from "./ImpactAnalysis";
+import { BASELINE, costOf, planIssue, useGame } from "./useGame";
+import { useLocale, useStoredValue } from "./useLocale";
+import {
+  directions,
+  districtName,
+  indicatorMeanings,
+  indicatorNames,
+  measureDescriptions,
+  measureNames,
+  select,
+  type Locale,
+  type MessageKey,
+} from "./i18n";
+import {
+  analyse,
+  issueText,
+  locationOf,
+  MONEY_SCALE,
+  money,
+  nonFinancialRussianExplanation,
+  number,
+  signed,
+} from "./presentation";
 import type { PlaceId } from "./world";
 import styles from "./game.module.css";
 
-const placeName = (id: PlaceId | null) =>
-  id === "city"
-    ? "Акимат"
-    : (DISTRICTS.find((d) => d.id === id)?.name ?? "В пути");
-const signed = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(2)}`;
-const directionIcon: Record<string, string> = {
-  Транспорт: "↔",
-  Экология: "♧",
-  Соцсфера: "+",
-  Безопасность: "◇",
-  Сервисы: "⌘",
-};
-
+type Notice = { key: MessageKey; place?: PlaceId };
 export default function Game() {
+  const { locale, setLocale, t } = useLocale();
   const game = useGame();
   const [near, setNear] = useState<PlaceId | null>("city");
   const [travel, setTravel] = useState<{ id: PlaceId; serial: number }>({
@@ -52,18 +62,26 @@ export default function Game() {
   );
   const [sidebar, setSidebar] = useState<"plan" | "result">("plan");
   const [confirm, setConfirm] = useState<Measure | null>(null);
-  const [notice, setNotice] = useState(
-    "Посетите Нуру и изучите показатели, которым нужна помощь.",
+  const [notice, setNotice] = useState<Notice>({ key: "startNotice" });
+  const [seenTutorial, setSeenTutorial] = useStoredValue(
+    "akim-controls-screen-v2",
+    "unseen",
   );
+  const tutorial = seenTutorial !== "seen";
   const dialog = useRef<HTMLDialogElement>(null),
     headingId = useId();
+  const dismissTutorial = () => setSeenTutorial("seen");
+  const placeName = (id: PlaceId | null) =>
+    id === "city" ? t("city") : id ? districtName(id, locale) : t("travelling");
+  const mName = (id: Measure["id"]) => select(measureNames[id], locale);
   const cost = costOf(game.decisions),
-    district = (game.result ?? BASELINE).districts.find(
-      (d) => d.districtId === visit,
-    );
+    result = game.result;
+  const district = (result ?? BASELINE).districts.find(
+    (d) => d.districtId === visit,
+  );
   const navigate = (id: PlaceId) => {
     setTravel((previous) => ({ id, serial: previous.serial + 1 }));
-    setNotice(`Маршрут: ${placeName(id)}. Аким идёт по дорогам города.`);
+    setNotice({ key: "routeNotice", place: id });
   };
   const open = useCallback(() => {
     if (!near) return;
@@ -81,19 +99,17 @@ export default function Game() {
   }, [visit]);
   const onNear = useCallback((id: PlaceId | null) => {
     setNear(id);
-    if (id)
-      setNotice(
-        `Вы прибыли: ${placeName(id)}. Откройте объект, чтобы изучить проблемы и проекты.`,
-      );
+    if (id) setNotice({ key: "arrivalNotice", place: id });
   }, []);
   const worldData = useMemo(
     () => ({
-      districts: (game.result ?? BASELINE).districts,
+      locale,
+      districts: (result ?? BASELINE).districts,
       decisions: game.decisions,
-      calculated: !!game.result,
-      synergies: game.result?.synergiesApplied ?? [],
+      calculated: !!result,
+      synergies: result?.synergiesApplied ?? [],
     }),
-    [game.result, game.decisions],
+    [result, game.decisions, locale],
   );
   const decisionFor = (measure: Measure): Decision => ({
     measureId: measure.id,
@@ -107,22 +123,65 @@ export default function Game() {
   const measures = MEASURES.filter(
     (m) => m.scope === (visit === "city" ? "Город" : "Район"),
   );
-  const result = game.result;
+  const suggestion = game.advisor.data;
+  const currentShare =
+    result && result.cost
+      ? (Math.max(
+          ...analyse(game.decisions, result).spending.map((d) => d.cost),
+        ) /
+          result.cost) *
+        100
+      : 0;
+  const swappedDecisions = suggestion
+    ? game.decisions.map((d) =>
+        d.measureId === suggestion.removed.measureId &&
+        (d.districtId ?? null) === (suggestion.removed.districtId ?? null)
+          ? suggestion.added
+          : d,
+      )
+    : [];
+  const nextShare =
+    suggestion && suggestion.scenario.cost
+      ? (Math.max(
+          ...analyse(swappedDecisions, suggestion.scenario).spending.map(
+            (d) => d.cost,
+          ),
+        ) /
+          suggestion.scenario.cost) *
+        100
+      : 0;
+  const provider = game.explanation.data
+    ? nonFinancialRussianExplanation(game.explanation.data.explanation)
+    : null;
+  const ruleKey = (first: string): MessageKey =>
+    first === "M1"
+      ? "conflictTransport"
+      : first === "M4"
+        ? "conflictLand"
+        : "conflictHeat";
   return (
-    <main className={styles.game} lang="ru">
+    <main className={styles.game} lang={locale}>
       <header className={styles.header}>
-        <a className={styles.brand} href="/game">
+        <div className={styles.brand}>
           <span className={styles.logo} aria-hidden="true">
             А
           </span>
           <span>
-            АКИМ<span className={styles.brandSub}>НА 5 ЧАСОВ</span>
+            {t("mayor")}
+            <span className={styles.brandSub}>{t("fiveHours")}</span>
           </span>
-        </a>
-        <div className={styles.headerCenter}>
-          <span className={styles.liveDot} /> АСТАНА{" "}
-          <span className={styles.muted}> / город ваших решений</span>
         </div>
+        <label className={styles.language}>
+          <span>{t("language")}</span>
+          <select
+            value={locale}
+            onChange={(e) => setLocale(e.target.value as Locale)}
+          >
+            <option value="kk">Қазақша</option>
+            <option value="ru">Русский</option>
+            <option value="en">English</option>
+          </select>
+        </label>
         <button
           className={styles.secondary}
           onClick={() => {
@@ -131,18 +190,18 @@ export default function Game() {
             setSidebar("result");
           }}
         >
-          Загрузить пример <span aria-hidden="true">↗</span>
+          {t("demo")} ↗
         </button>
       </header>
-      <section className={styles.hud} aria-label="Бюджет и состояние игры">
+      <section className={styles.hud} aria-label={t("budget")}>
         <div className={styles.budgetBlock}>
-          <span className={styles.overline}>ГОРОДСКОЙ БЮДЖЕТ</span>
-          <div>
-            <strong key={cost} className={styles.budgetNumber}>
-              {BUDGET - cost}
-            </strong>
-            <span className={styles.muted}> / {BUDGET} у.е. осталось</span>
-          </div>
+          <span className={styles.overline}>{t("remaining")}</span>
+          <strong key={cost} className={styles.budgetNumber}>
+            {money(BUDGET - cost, locale)}
+          </strong>
+          <span className={styles.muted}>
+            {t("of")} {money(BUDGET, locale)}
+          </span>
           <div className={styles.budgetTrack}>
             <span
               style={{
@@ -152,13 +211,11 @@ export default function Game() {
           </div>
         </div>
         <div className={styles.hudStat}>
-          <span className={styles.overline}>В ПЛАНЕ</span>
-          <strong>
-            {cost} <small>у.е.</small>
-          </strong>
+          <span className={styles.overline}>{t("planned")}</span>
+          <strong className={styles.moneyAmount}>{money(cost, locale)}</strong>
         </div>
         <div className={styles.hudStat}>
-          <span className={styles.overline}>РЕШЕНИЯ</span>
+          <span className={styles.overline}>{t("decisions")}</span>
           <strong>
             {game.decisions.length}
             <small> / {DECISIONS_REQUIRED}</small>
@@ -166,27 +223,33 @@ export default function Game() {
         </div>
         <div className={styles.hudStatus}>
           <span className={styles.overline}>
-            {result ? "РАСЧЁТ ГОТОВ" : "ПЛАНИРОВАНИЕ"}
+            {t(result ? "ready" : "planning")}
           </span>
           <strong>
             {result
-              ? `Score ${result.score.toFixed(2)}`
-              : "Будущее начинается здесь"}
+              ? `${t("index")}: ${number(result.score, locale)}`
+              : t("missionTitle")}
           </strong>
           <span className={styles.muted}>
             {result
-              ? `${signed(result.score - BASELINE.score)} к исходному сценарию`
-              : "Выберите 5 решений и рассчитайте последствия"}
+              ? `${t("change")}: ${signed(result.score - BASELINE.score, locale)}`
+              : t("chooseFive", { count: DECISIONS_REQUIRED })}
           </span>
         </div>
       </section>
+      <p className={styles.moneyNote}>
+        {t("simulationMoney")}{" "}
+        {t(MONEY_SCALE.approved ? "approvedScale" : "proposedScale", {
+          money: money(1, locale),
+        })}
+      </p>
       <div className={styles.layout}>
-        <section className={styles.stage} aria-label="Игровой мир">
+        <section className={styles.stage} aria-label={t("world")}>
           <div className={styles.mapTop}>
             <span className={styles.mapTitle}>
               <span className={styles.liveDot} /> {placeName(near)}
             </span>
-            <span className={styles.mapLegend}>! критично · ✦ синергия</span>
+            <span className={styles.mapLegend}>{t("legend")}</span>
           </div>
           <WorldCanvas
             data={worldData}
@@ -196,45 +259,53 @@ export default function Game() {
             paused={!!visit}
           />
           <div className={styles.mission}>
-            <span className={styles.overline}>ВАША МИССИЯ</span>
-            <strong>
-              Город меняется
-              <br />с вашего решения.
-            </strong>
-            <p>
-              Посетите район → изучите проблему → выберите проект → рассчитайте
-              эффект.
-            </p>
+            <span className={styles.overline}>{t("mission")}</span>
+            <strong>{t("missionTitle")}</strong>
+            <p>{t("tutorial")}</p>
           </div>
-          <div className={styles.locationNotice} role="status" key={notice}>
-            {notice}
+          {tutorial && (
+            <div
+              className={styles.tutorial}
+              role="region"
+              aria-label={t("controlsShort")}
+            >
+              <p>{t("controls")}</p>
+              <button className={styles.secondary} onClick={dismissTutorial}>
+                {t("understood")}
+              </button>
+            </div>
+          )}
+          <div className={styles.locationNotice} role="status">
+            {t(notice.key, {
+              place: notice.place ? placeName(notice.place) : "",
+            })}
           </div>
           <div className={styles.interaction}>
             {near ? (
               <button className={styles.primary} onClick={open}>
                 <kbd>E</kbd>{" "}
                 {near === "city"
-                  ? "Войти в акимат"
-                  : `Изучить район ${placeName(near)}`}{" "}
-                <span aria-hidden="true">→</span>
+                  ? t("enterCity")
+                  : t("visit", { place: placeName(near) })}{" "}
+                →
               </button>
             ) : (
-              <span className={styles.walking}>Идём к объекту…</span>
+              <span className={styles.walking}>{t("travelling")}…</span>
             )}
           </div>
           <div className={styles.mapBottom}>
-            <span>WASD / стрелки · клик по дороге</span>
-            <span>Схематическая карта</span>
+            <span>{t("controlsShort")}</span>
+            <span>{t("map")}</span>
           </div>
         </section>
         <aside className={styles.sidebar}>
           <section className={styles.destinations}>
             <div className={styles.sectionHeading}>
-              <h2>Куда отправимся?</h2>
+              <h2>{t("where")}</h2>
               <span>↗</span>
             </div>
-            <p className={styles.muted}>Выберите пункт — аким дойдёт сам.</p>
-            <nav aria-label="Маршруты по городу">
+            <p className={styles.muted}>{t("routeHelp")}</p>
+            <nav aria-label={t("where")}>
               {[...DISTRICTS.map((d) => d.id), "city" as const].map((id) => (
                 <button
                   key={id}
@@ -244,7 +315,7 @@ export default function Game() {
                 >
                   <span>{placeName(id)}</span>
                   {id !== "city" &&
-                  (game.result ?? BASELINE).districts
+                  (result ?? BASELINE).districts
                     .find((d) => d.districtId === id)
                     ?.indicators.some((i) => i.critical) ? (
                     <span className={styles.critical}>!</span>
@@ -255,18 +326,18 @@ export default function Game() {
               ))}
             </nav>
           </section>
-          <div className={styles.tabs} aria-label="Панель решений">
+          <div className={styles.tabs}>
             <button
               aria-pressed={sidebar === "plan"}
               onClick={() => setSidebar("plan")}
             >
-              Ваш план <span>{game.decisions.length}</span>
+              {t("plan")} <span>{game.decisions.length}</span>
             </button>
             <button
               aria-pressed={sidebar === "result"}
               onClick={() => setSidebar("result")}
             >
-              Последствия
+              {t("impact")}
             </button>
           </div>
           <div className={styles.sidebarContent}>
@@ -275,39 +346,30 @@ export default function Game() {
                 {!game.decisions.length && (
                   <div className={styles.empty}>
                     <span aria-hidden="true">✦</span>
-                    <h3>
-                      Пять решений.
-                      <br />
-                      Один город.
-                    </h3>
-                    <p>
-                      Начните с районов, которым нужна помощь. Или загрузите
-                      готовый пример.
-                    </p>
+                    <h3>{t("emptyTitle")}</h3>
+                    <p>{t("emptyHelp")}</p>
                     <button
                       className={styles.secondary}
                       onClick={() => navigate("nura")}
                     >
-                      Отправиться в Нуру →
+                      {t("goNura")} →
                     </button>
                   </div>
                 )}
                 <ol className={styles.planList}>
                   {game.decisions.map((d, i) => (
                     <li key={`${d.measureId}-${d.districtId ?? "city"}`}>
-                      <span className={styles.planIndex}>
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
+                      <span className={styles.planIndex}>{i + 1}</span>
                       <div>
-                        <small>
-                          {locationOf(d)} · {d.measureId}
-                        </small>
-                        <strong>{MEASURE_MAP[d.measureId].name}</strong>
-                        <span>{MEASURE_MAP[d.measureId].cost} у.е.</span>
+                        <small>{locationOf(d, locale)}</small>
+                        <strong>{mName(d.measureId)}</strong>
+                        <span>
+                          {money(MEASURE_MAP[d.measureId].cost, locale)}
+                        </span>
                       </div>
                       <button
                         className={styles.remove}
-                        aria-label={`Отменить ${d.measureId} — ${locationOf(d)}`}
+                        aria-label={`${t("remove")}: ${mName(d.measureId)} — ${locationOf(d, locale)}`}
                         onClick={() => game.remove(d)}
                       >
                         ×
@@ -320,88 +382,92 @@ export default function Game() {
                     className={styles.textButton}
                     onClick={() => {
                       game.reset();
-                      setNotice(
-                        "План очищен. На карте снова исходное состояние города.",
-                      );
+                      setNotice({ key: "resetNotice" });
                     }}
                   >
-                    Очистить план
+                    {t("clear")}
                   </button>
                 )}
               </>
             ) : result ? (
               <div className={styles.results}>
-                <p className={styles.overline}>КАЧЕСТВО ЖИЗНИ · SCORE</p>
+                <p className={styles.overline}>{t("index")}</p>
                 <div className={styles.resultScore}>
-                  <span>{BASELINE.score.toFixed(2)} →</span>
-                  <strong>{result.score.toFixed(2)}</strong>
-                  <em>{signed(result.score - BASELINE.score)}</em>
+                  <span>{number(BASELINE.score, locale)} →</span>
+                  <strong>{number(result.score, locale)}</strong>
+                  <em>{signed(result.score - BASELINE.score, locale)}</em>
                 </div>
+                <p className={styles.muted}>{t("indexHelp")}</p>
                 <p className={styles.muted}>
-                  Горизонт — {HORIZON_QUARTERS} кварталов. Расход: {result.cost}{" "}
-                  / {BUDGET}. Критических значений: {result.nCrit}.
+                  {t("cost")}: {money(result.cost, locale)}.{" "}
+                  {t("criticalLeft", { count: result.nCrit })}
                 </p>
-                <div className={styles.resultDistricts}>
-                  {result.districts.map((d) => (
-                    <button
-                      key={d.districtId}
-                      onClick={() => navigate(d.districtId)}
-                    >
-                      <span>{d.name}</span>
-                      <small>{d.baseScore.toFixed(1)} →</small>
-                      <b>{d.finalScore.toFixed(1)}</b>
-                    </button>
-                  ))}
-                </div>
-                {result.synergiesApplied.map((s) => (
-                  <p className={styles.synergy} key={s.id}>
-                    ✦ {s.pair.join(" + ")} · {s.district} · {s.indicator} +
-                    {s.amount}
-                  </p>
-                ))}
+                <ImpactAnalysis
+                  decisions={game.decisions}
+                  result={result}
+                  locale={locale}
+                />
                 <div className={styles.advisor}>
-                  <h3>Советник акима</h3>
-                  <p className={styles.muted}>
-                    Проверим, улучшит ли план замена одного решения.
-                  </p>
+                  <h3>{t("advisor")}</h3>
+                  <p className={styles.muted}>{t("advisorHelp")}</p>
                   <button
                     className={styles.secondary}
                     disabled={game.advisor.status === "loading"}
                     onClick={() => game.request("improve")}
                   >
-                    {game.advisor.status === "loading"
-                      ? "Ищем замену…"
-                      : game.advisor.status === "error"
-                        ? "Повторить поиск"
-                        : "Найти улучшение"}
+                    {t(
+                      game.advisor.status === "loading"
+                        ? "searching"
+                        : game.advisor.status === "error"
+                          ? "retry"
+                          : "improve",
+                    )}
                   </button>
                   {game.advisor.error && (
                     <p role="alert" className={styles.error}>
-                      {game.advisor.error}
+                      {issueText(game.advisor.error, locale)}
                     </p>
                   )}
-                  {game.advisor.status === "ready" &&
-                    game.advisor.data === null && (
-                      <p>
-                        Среди допустимых замен одного решения улучшение не
-                        найдено.
-                      </p>
-                    )}
-                  {game.advisor.data && (
+                  {game.advisor.status === "ready" && suggestion === null && (
+                    <p>{t("noImprovement")}</p>
+                  )}
+                  {suggestion && (
                     <div className={styles.suggestion}>
                       <p>
-                        {game.advisor.data.removed.measureId} ·{" "}
-                        {locationOf(game.advisor.data.removed)}
+                        {mName(suggestion.removed.measureId)} ·{" "}
+                        {locationOf(suggestion.removed, locale)}
                         <br />↓<br />
-                        {game.advisor.data.added.measureId} ·{" "}
-                        {locationOf(game.advisor.data.added)}
+                        {mName(suggestion.added.measureId)} ·{" "}
+                        {locationOf(suggestion.added, locale)}
                       </p>
                       <strong>
-                        {signed(game.advisor.data.scoreDelta)} Score
+                        {t("change")}: {signed(suggestion.scoreDelta, locale)}
                       </strong>
                       <p>
-                        Стоимость плана: {game.advisor.data.scenario.cost} у.е.
+                        {t("cost")}: {money(suggestion.scenario.cost, locale)}
                       </p>
+                      <h4>{t("swapImpact")}</h4>
+                      {suggestion.scenario.districts.map((d) => {
+                        const previous = result.districts.find(
+                          (old) => old.districtId === d.districtId,
+                        )!;
+                        return (
+                          <p key={d.districtId}>
+                            {districtName(d.districtId, locale)}:{" "}
+                            {signed(d.finalScore - previous.finalScore, locale)}
+                          </p>
+                        );
+                      })}
+                      <p>
+                        {t("swapConcentration", {
+                          before: number(currentShare, locale, 1),
+                          after: number(nextShare, locale, 1),
+                        })}
+                      </p>
+                      {nextShare > currentShare + 0.01 && (
+                        <p className={styles.rule}>{t("moreConcentrated")}</p>
+                      )}
+                      <p className={styles.muted}>{t("swapHelp")}</p>
                       <button
                         className={styles.primary}
                         onClick={() => {
@@ -409,56 +475,86 @@ export default function Game() {
                           if (added) navigate(added.districtId ?? "city");
                         }}
                       >
-                        Применить замену
+                        {t("apply")}
                       </button>
                     </div>
                   )}
                 </div>
                 <div className={styles.advisor}>
-                  <h3>Почему так получилось?</h3>
+                  <h3>{t("why")}</h3>
+                  <p className={styles.muted}>{t("aiLanguage")}</p>
                   <button
                     className={styles.secondary}
                     disabled={game.explanation.status === "loading"}
                     onClick={() => game.request("explain")}
                   >
-                    {game.explanation.status === "loading"
-                      ? "Объяснение загружается…"
-                      : game.explanation.status === "error"
-                        ? "Повторить объяснение"
-                        : "Объяснить результат"}
+                    {t(
+                      game.explanation.status === "loading"
+                        ? "explaining"
+                        : game.explanation.status === "error"
+                          ? "retry"
+                          : "explain",
+                    )}
                   </button>
                   {game.explanation.error && (
                     <p role="alert" className={styles.error}>
-                      {game.explanation.error}
+                      {issueText(game.explanation.error, locale)}
                     </p>
                   )}
                   {game.explanation.data && (
                     <>
                       <p className={styles.source}>
-                        {game.explanation.data.source === "offline-template"
-                          ? "Объяснение по данным · без AI"
-                          : "AI-объяснение готово"}
+                        {t(
+                          game.explanation.data.source === "offline-template"
+                            ? "offline"
+                            : "aiReady",
+                        )}
                       </p>
-                      <p className={styles.explanation}>
-                        {game.explanation.data.explanation}
-                      </p>
+                      {game.explanation.data.source === "offline-template" ? (
+                        <p className={styles.muted}>{t("offlineHelp")}</p>
+                      ) : (
+                        <>
+                          {provider?.hidden && (
+                            <p className={styles.muted}>{t("aiMoneyHidden")}</p>
+                          )}
+                          <details>
+                            <summary>{t("aiOriginal")}</summary>
+                            <p lang="ru" className={styles.explanation}>
+                              {provider?.text}
+                            </p>
+                          </details>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
+                <details className={styles.technical}>
+                  <summary>{t("details")}</summary>
+                  <p>{t("parameters")}</p>
+                  {game.decisions.map((d) => (
+                    <p key={d.measureId}>
+                      {d.measureId} · {mName(d.measureId)} ·{" "}
+                      {locationOf(d, locale)}
+                    </p>
+                  ))}
+                  {result.synergiesApplied.map((s) => (
+                    <p key={s.id}>
+                      {s.pair.join(" + ")} → {s.indicator} +
+                      {number(s.amount, locale, 0)}
+                    </p>
+                  ))}
+                </details>
               </div>
             ) : (
               <div className={styles.empty}>
                 <span aria-hidden="true">↗</span>
-                <h3>Каким станет город?</h3>
-                <p>
-                  После изменения плана нужен новый расчёт. На карте показаны
-                  исходные показатели.
-                </p>
+                <h3>{t("impact")}</h3>
+                <p>{t("needsCalculation")}</p>
               </div>
             )}
             {game.error && (
               <p className={styles.error} role="alert">
-                {game.error}
+                {issueText(game.error, locale)}
               </p>
             )}
           </div>
@@ -468,29 +564,26 @@ export default function Game() {
               onClick={() => {
                 if (game.calculate()) {
                   setSidebar("result");
-                  setNotice(
-                    "Расчёт готов. Откройте район, чтобы изучить изменения показателей.",
-                  );
+                  setNotice({ key: "readyNotice" });
                 }
               }}
             >
-              Рассчитать последствия <span aria-hidden="true">→</span>
+              {t("calculate")} →
             </button>
             <small>
               {result
-                ? "Результат соответствует текущему плану"
-                : `${game.decisions.length} из ${DECISIONS_REQUIRED} решений · результат ещё не рассчитан`}
+                ? t("currentResult")
+                : t("pendingPlan", {
+                    count: game.decisions.length,
+                    required: DECISIONS_REQUIRED,
+                  })}
             </small>
           </div>
         </aside>
       </div>
       <footer className={styles.footer}>
         <span>HACKALEM · ASTANA INNOVATIONS</span>
-        <p>
-          Учебная симуляция на синтетических данных. Результаты не являются
-          прогнозом развития города.
-        </p>
-        <a href="/board">Доска районов ↗</a>
+        <p>{t("disclaimer")}</p>
       </footer>
       <dialog
         ref={dialog}
@@ -505,16 +598,14 @@ export default function Game() {
           <header className={styles.dialogHeader}>
             <div>
               <p className={styles.overline}>
-                {confirm ? "ПЕРЕД ВКЛЮЧЕНИЕМ В ПЛАН" : "ВЫ НА МЕСТЕ"}
+                {t(confirm ? "beforeConfirm" : "arrived")}
               </p>
-              <h2 id={headingId}>
-                {confirm ? "Инвестируем в город?" : placeName(visit)}
-              </h2>
+              <h2 id={headingId}>{confirm ? t("invest") : placeName(visit)}</h2>
             </div>
             <button
               className={styles.close}
               onClick={close}
-              aria-label="Закрыть объект"
+              aria-label={t("close")}
             >
               ×
             </button>
@@ -522,62 +613,74 @@ export default function Game() {
           {confirm ? (
             <div className={styles.confirm}>
               <span className={styles.pill}>
-                {confirm.id} · {confirm.direction}
+                {select(directions[confirm.direction], locale)}
               </span>
-              <h3>{confirm.name}</h3>
-              <p>{locationOf(decisionFor(confirm))}</p>
+              <h3>{mName(confirm.id)}</h3>
+              <p>{select(measureDescriptions[confirm.id], locale)}</p>
+              <p>
+                {t("coverage", {
+                  place: locationOf(decisionFor(confirm), locale),
+                })}
+              </p>
               <div className={styles.purchase}>
                 <div>
-                  <span>Стоимость</span>
-                  <strong>
-                    {confirm.cost}
-                    <small> у.е.</small>
-                  </strong>
+                  <span>{t("cost")}</span>
+                  <strong>{money(confirm.cost, locale)}</strong>
                 </div>
                 <div>
-                  <span>Останется</span>
-                  <strong>
-                    {BUDGET - cost - confirm.cost}
-                    <small> у.е.</small>
-                  </strong>
+                  <span>{t("afterwards")}</span>
+                  <strong>{money(BUDGET - cost - confirm.cost, locale)}</strong>
                 </div>
               </div>
               <p>
-                Мера начинает работать с {confirm.lag}-го квартала. Итог
-                рассчитывается на горизонте {HORIZON_QUARTERS} кварталов.
+                {t("timing", { lag: confirm.lag, horizon: HORIZON_QUARTERS })}
               </p>
-              <h4>Направления воздействия по паспорту меры</h4>
+              <h4>{t("effects")}</h4>
               <ul>
                 {confirm.effects.map((effect) => (
-                  <li key={effect.indicator}>
-                    {INDICATORS.find((i) => i.code === effect.indicator)?.name}:{" "}
-                    <b className={effect.amount < 0 ? styles.critical : ""}>
-                      {effect.amount > 0 ? "+" : ""}
-                      {effect.amount}
-                    </b>
+                  <li
+                    key={effect.indicator}
+                    className={effect.amount < 0 ? styles.critical : ""}
+                  >
+                    {t(effect.amount < 0 ? "harms" : "helps", {
+                      indicator: select(
+                        indicatorNames[effect.indicator],
+                        locale,
+                      ),
+                    })}
                   </li>
                 ))}
               </ul>
-              <p className={styles.muted}>
-                Это параметры меры. Итоговые изменения зависят от правил движка
-                и появятся после расчёта.
-              </p>
+              <p className={styles.muted}>{t("effectHelp")}</p>
               {INCOMPATIBILITIES.filter((rule) =>
                 rule.pair.includes(confirm.id),
               ).map((rule) => (
                 <p className={styles.rule} key={rule.pair.join()}>
-                  {rule.reason}
+                  {t(ruleKey(rule.pair[0]))}
                 </p>
               ))}
               {SYNERGIES.filter((s) => s.pair.includes(confirm.id)).map((s) => (
                 <p className={styles.synergy} key={s.pair.join()}>
-                  Возможная синергия: {s.pair.join(" + ")}, {s.bonusIndicator} +
-                  {s.bonusAmount}. Проверяется при расчёте.
+                  {t("possibleSynergy", {
+                    project: mName(s.pair.find((id) => id !== confirm.id)!),
+                  })}
                 </p>
               ))}
+              <details className={styles.technical}>
+                <summary>{t("details")}</summary>
+                <p>
+                  {confirm.id} · {t("parameters")}
+                </p>
+                {confirm.effects.map((effect) => (
+                  <p key={effect.indicator}>
+                    {effect.indicator}: {effect.amount > 0 ? "+" : ""}
+                    {number(effect.amount, locale, 0)}
+                  </p>
+                ))}
+              </details>
               {confirmationIssue && (
                 <p className={styles.error} role="alert">
-                  {confirmationIssue}
+                  {issueText(confirmationIssue, locale)}
                 </p>
               )}
               <div className={styles.confirmActions}>
@@ -585,7 +688,7 @@ export default function Game() {
                   className={styles.secondary}
                   onClick={() => setConfirm(null)}
                 >
-                  Назад
+                  {t("back")}
                 </button>
                 <button
                   className={styles.primary}
@@ -593,43 +696,32 @@ export default function Game() {
                   onClick={() => {
                     if (game.add(decisionFor(confirm))) {
                       setSidebar("plan");
-                      setNotice(
-                        `${confirm.id}: добавлено в план. Для последствий нужен расчёт.`,
-                      );
-                      setConfirm(null);
+                      setNotice({ key: "addedNotice" });
                       close();
                     }
                   }}
                 >
-                  Включить в план · {confirm.cost}
+                  {t("include")} · {money(confirm.cost, locale)}
                 </button>
               </div>
             </div>
           ) : (
             <>
               <p className={styles.profile}>
-                {visit === "city"
-                  ? "Здесь выбирают решения для всего города. Район для них не требуется."
-                  : DISTRICTS.find((d) => d.id === visit)?.profile}
+                {t(visit === "city" ? "cityHelp" : "indexHelp")}
               </p>
               {district && (
                 <div className={styles.problemSummary}>
                   <span>
-                    Score района <b>{district.finalScore.toFixed(1)}</b>
+                    {t("index")} <b>{number(district.finalScore, locale, 1)}</b>
                   </span>
-                  <span>
-                    {game.result ? "После расчёта" : "Исходное состояние"}
-                  </span>
+                  <span>{t(result ? "afterCalculation" : "initial")}</span>
                   {district.indicators
                     .filter((i) => i.critical)
                     .map((i) => (
                       <p key={i.indicator} className={styles.critical}>
-                        !{" "}
-                        {
-                          INDICATORS.find((meta) => meta.code === i.indicator)
-                            ?.name
-                        }
-                        : {i.final.toFixed(1)}
+                        ! {select(indicatorNames[i.indicator], locale)}:{" "}
+                        {number(i.final, locale, 1)}
                       </p>
                     ))}
                 </div>
@@ -639,47 +731,47 @@ export default function Game() {
                   aria-pressed={panelTab === "projects"}
                   onClick={() => setPanelTab("projects")}
                 >
-                  Проекты
+                  {t("projects")}
                 </button>
                 {district && (
                   <button
                     aria-pressed={panelTab === "indicators"}
                     onClick={() => setPanelTab("indicators")}
                   >
-                    Все 10 показателей
+                    {t("allIndicators")}
                   </button>
                 )}
               </div>
               {panelTab === "indicators" && district ? (
                 <div className={styles.indicators}>
-                  {district.indicators.map((i) => {
-                    const meta = INDICATORS.find(
-                      (m) => m.code === i.indicator,
-                    )!;
-                    return (
-                      <div key={i.indicator}>
-                        <div>
-                          <span>
-                            {i.indicator} · {meta.name}
-                          </span>
-                          <b className={i.critical ? styles.critical : ""}>
-                            {i.final.toFixed(1)}
-                          </b>
-                        </div>
-                        <meter
-                          min={0}
-                          max={100}
-                          value={i.final}
-                          aria-label={meta.name}
-                        />
-                        <p>{meta.meaning}</p>
-                        <small>
-                          Было {i.base.toFixed(1)} · изменение {signed(i.delta)}
-                          {i.critical ? " · критический показатель" : ""}
-                        </small>
+                  {district.indicators.map((i) => (
+                    <div key={i.indicator}>
+                      <div>
+                        <span>
+                          {select(indicatorNames[i.indicator], locale)}
+                        </span>
+                        <b className={i.critical ? styles.critical : ""}>
+                          {number(i.final, locale, 1)}
+                        </b>
                       </div>
-                    );
-                  })}
+                      <meter
+                        min={0}
+                        max={100}
+                        value={i.final}
+                        aria-label={select(indicatorNames[i.indicator], locale)}
+                      />
+                      <p>{select(indicatorMeanings[i.indicator], locale)}</p>
+                      <small>
+                        {t("before")} {number(i.base, locale, 1)} ·{" "}
+                        {t("change")} {signed(i.delta, locale)}
+                        {i.critical ? ` · ${t("critical")}` : ""}
+                      </small>
+                      <details className={styles.technical}>
+                        <summary>{t("details")}</summary>
+                        {i.indicator}
+                      </details>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className={styles.projects}>
@@ -687,43 +779,41 @@ export default function Game() {
                     const chosen = game.decisions.find(
                       (d) => d.measureId === measure.id,
                     );
-                    const relevant = district?.indicators.filter((i) =>
-                      measure.effects.some((e) => e.indicator === i.indicator),
-                    );
                     return (
-                      <article className={styles.project} key={measure.id}>
+                      <article
+                        className={styles.project}
+                        key={measure.id}
+                        data-project={measure.id}
+                      >
                         <div className={styles.projectHeading}>
-                          <span
-                            className={styles.projectIcon}
-                            aria-hidden="true"
-                          >
-                            {directionIcon[measure.direction]}
-                          </span>
                           <span className={styles.overline}>
-                            {measure.direction} · {measure.id}
+                            {select(directions[measure.direction], locale)}
                           </span>
-                          <strong>
-                            {measure.cost}
-                            <small> у.е.</small>
-                          </strong>
+                          <strong>{money(measure.cost, locale)}</strong>
                         </div>
-                        <h3>{measure.name}</h3>
+                        <h3>{mName(measure.id)}</h3>
+                        <p>{select(measureDescriptions[measure.id], locale)}</p>
                         <p>
-                          {relevant
-                            ?.map(
-                              (i) =>
-                                `${i.indicator}: ${i.final.toFixed(0)}${i.critical ? " !" : ""}`,
-                            )
-                            .join(" · ") ?? "Мера действует на весь город"}
+                          {t("coverage", {
+                            place: locationOf(decisionFor(measure), locale),
+                          })}
+                        </p>
+                        <p>
+                          {t("timing", {
+                            lag: measure.lag,
+                            horizon: HORIZON_QUARTERS,
+                          })}
                         </p>
                         {chosen ? (
                           <div className={styles.chosen}>
-                            <span>В плане · {locationOf(chosen)}</span>
+                            <span>
+                              {t("planned")} · {locationOf(chosen, locale)}
+                            </span>
                             <button
                               className={styles.textButton}
                               onClick={() => game.remove(chosen)}
                             >
-                              Отменить
+                              {t("remove")}
                             </button>
                           </div>
                         ) : (
@@ -731,7 +821,7 @@ export default function Game() {
                             className={styles.secondary}
                             onClick={() => setConfirm(measure)}
                           >
-                            Изучить проект →
+                            {t("explore")} →
                           </button>
                         )}
                       </article>
