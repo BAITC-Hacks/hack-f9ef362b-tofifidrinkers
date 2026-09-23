@@ -85,3 +85,4 @@ const synergy = {
   struggling: pixels(["...EE...", "...EE...", "..EFFE..", "EEFFFFEE", "EEFFFFEE", "..EFFE..", "...EE...", "...EE..."]),
 };
 export const SPRITES = { ground, buildings, alarm, synergy } as const;
+
