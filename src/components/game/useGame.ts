@@ -16,7 +16,8 @@ import {
   type ScenarioResult,
 } from "@/lib/engine";
 import type { SwapSuggestion } from "@/lib/improve";
-import type { ExplanationResult } from "@/lib/explain";
+import { parseReport, type FinalReportResult } from "@/lib/reportContract";
+import type { Locale } from "./i18n";
 import { engineIssue, type Issue } from "./presentation";
 
 export const EXAMPLE: Decision[] = [
@@ -81,7 +82,7 @@ export function useGame() {
     status: "idle",
   });
   const [explanation, setExplanation] = useState<
-    RequestState<ExplanationResult>
+    RequestState<FinalReportResult>
   >({ status: "idle" });
   const revision = useRef(0),
     active = useRef<Partial<Record<"improve" | "explain", AbortController>>>(
@@ -130,7 +131,7 @@ export function useGame() {
     change(EXAMPLE.map((d) => ({ ...d })));
     calculate(EXAMPLE);
   }
-  async function request(kind: "improve" | "explain") {
+  async function request(kind: "improve" | "explain", language: Locale = "ru") {
     if (!result || active.current[kind]) return;
     const controller = new AbortController(),
       version = revision.current;
@@ -142,7 +143,10 @@ export function useGame() {
       const response = await fetch(`/api/${kind}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decisions }),
+        body: JSON.stringify({
+          decisions,
+          ...(kind === "explain" ? { format: "report", language } : {}),
+        }),
         signal: controller.signal,
       });
       const data = await response.json();
@@ -152,14 +156,46 @@ export function useGame() {
       if (kind === "improve") {
         if (!("suggestion" in data))
           throw new Error("Советник временно недоступен.");
-        setAdvisor({ status: "ready", data: data.suggestion });
+        if (data.suggestion === null) {
+          setAdvisor({ status: "ready", data: null });
+        } else {
+          const candidate = data.suggestion as SwapSuggestion;
+          if (!candidate?.removed || !candidate?.added)
+            throw new Error("Invalid suggestion");
+          const index = decisions.findIndex((d) =>
+            sameDecision(d, candidate.removed),
+          );
+          if (index < 0) throw new Error("Unmatched replacement");
+          const next = decisions.map((d, i) =>
+            i === index ? candidate.added : d,
+          );
+          const checked = calculateScenario(next);
+          if (!checked.valid || checked.score <= result.score + 1e-8)
+            throw new Error("Invalid improvement");
+          setAdvisor({
+            status: "ready",
+            data: {
+              removed: candidate.removed,
+              added: candidate.added,
+              scenario: checked,
+              scoreDelta: checked.score - result.score,
+              costDelta: checked.cost - result.cost,
+            },
+          });
+        }
       } else {
         if (
-          typeof data.explanation !== "string" ||
+          data.format !== "report" ||
+          data.language !== language ||
+          (data.source !== "offline-template" && !data.narrative) ||
           !["offline-template", "openai", "anthropic"].includes(data.source)
         )
           throw new Error("Не удалось прочитать объяснение.");
-        setExplanation({ status: "ready", data });
+        const narrative =
+          data.source === "offline-template"
+            ? null
+            : parseReport(JSON.stringify(data.narrative));
+        setExplanation({ status: "ready", data: { ...data, narrative } });
       }
     } catch {
       if (version !== revision.current) return;
@@ -196,7 +232,17 @@ export function useGame() {
     setResult(scenario);
     return suggestion.added;
   }
+  function invalidateExplanation() {
+    revision.current++;
+    Object.values(active.current).forEach((c) => c?.abort());
+    active.current = {};
+    setExplanation({ status: "idle" });
+    setAdvisor((previous) =>
+      previous.status === "loading" ? { status: "idle" } : previous,
+    );
+  }
   return {
+    invalidateExplanation,
     decisions,
     result,
     error,
