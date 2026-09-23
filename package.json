@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "verify": "tsx src/lib/verify.ts",
-    "verify:daniyal": "tsx src/lib/verify-daniyal.ts"
+    "verify:daniyal": "tsx src/lib/verify-daniyal.ts",
+    "verify:improve": "tsx src/lib/verify-improve.ts"
   },
   "dependencies": {
     "next": "16.3.6",
