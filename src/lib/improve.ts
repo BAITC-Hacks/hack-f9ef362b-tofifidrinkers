@@ -1,8 +1,8 @@
-// Зона ответственности: Даниял (см. fixtures/daniyal/IMPROVEMENT_SPEC.md).
+// Зона ответственности: Даниял.
 // Не дублировать формулу и правила — использовать только calculateScenario/validateScenario из "./engine".
-// Не переносить fixtures/daniyal/verify_fixtures.py в backend — это независимая сверка, не реализация.
 import { DISTRICTS, MEASURES } from "./data";
-import { Decision, ScenarioResult, calculateScenario } from "./engine";
+import { calculateScenario } from "./engine";
+import type { Decision, ScenarioResult } from "./engine";
 
 export interface SwapSuggestion {
   removed: Decision;
@@ -12,33 +12,62 @@ export interface SwapSuggestion {
   costDelta: number;
 }
 
-/**
- * Перебирает допустимые замены ОДНОГО из пяти выбранных решений (включая перенос той же меры
- * в другой район) и возвращает лучшую валидную замену по итоговому Score, либо null, если среди
- * проверенных замен строгого улучшения нет. current должен быть уже валидным сценарием (5 решений,
- * calculateScenario(current).valid === true) — вызывающая сторона (API-роут) это гарантирует.
- *
- * Алгоритм (см. IMPROVEMENT_SPEC.md):
- * 1. originalScore = calculateScenario(current).score (current не пересчитывать/не мутировать).
- * 2. Для каждой позиции i из 5: временно убрать decisions[i].
- * 3. Для каждого мероприятия m из MEASURES, не входящего в оставшиеся 4 (включая саму decisions[i].measureId —
- *    разрешена смена района той же меры): если m.scope === "Район" — вариант на каждый из 5 DISTRICTS;
- *    если "Город" — один вариант без districtId. Полностью неизменный вариант (то же measureId и district) пропустить.
- * 4. candidate = [...current без i, вариант]; calculateScenario(candidate); отбросить invalid.
- * 5. Оставить только строго положительное улучшение: candidate.score - originalScore > EPS (1e-8),
- *    не сравнивать уже округлённые до 2 знаков числа.
- * 6. При нескольких кандидатах с (почти) равным лучшим score — меньшая cost; при равной cost —
- *    лексикографически меньший канонический ключ сценария (решения, отсортированные по номеру
- *    после "M", district представлен пустой строкой для городских мер).
- * 7. Вернуть SwapSuggestion { removed: исходное решение i, added: вариант, scenario: calculateScenario(candidate),
- *    scoreDelta: scenario.score - originalScore, costDelta: scenario.cost - current.cost }, либо null.
- *
- * До 54 вариантов меры (10 районных × 5 районов + 4 городских) × 5 позиций ≈ 270 кандидатов до фильтрации.
+const SCORE_EPSILON = 1e-8;
+
+function decisionKey(decision: Decision): string {
+  return `${decision.measureId.slice(1).padStart(2, "0")}:${decision.districtId ?? ""}`;
+}
+
+function compareDecisions(a: Decision, b: Decision): number {
+  const ka = decisionKey(a);
+  const kb = decisionKey(b);
+  return ka < kb ? -1 : ka > kb ? 1 : 0;
+}
+
+/** Лучшая замена одного решения; не глобальная оптимизация всего бюджета.
+ * При равных Score (с точностью 1e-8) выбирается меньшая стоимость,
+ * затем канонический порядок мероприятий и районов. Вход не изменяется.
+ * Невалидный вход и отсутствие улучшений возвращают null; API валидирует вход отдельно.
  */
 export function findBestSingleSwap(current: Decision[]): SwapSuggestion | null {
-  void DISTRICTS;
-  void MEASURES;
-  void current;
-  void calculateScenario;
-  return null;
+  const baseline = calculateScenario(current);
+  if (!baseline.valid) return null;
+  const ordered = current.map((d) => ({ ...d })).sort(compareDecisions);
+
+  const candidates: { suggestion: SwapSuggestion; key: string }[] = [];
+  for (let index = 0; index < ordered.length; index++) {
+    const removed = ordered[index];
+    const remaining = ordered.filter((_, i) => i !== index);
+    const usedIds = new Set(remaining.map((d) => d.measureId));
+
+    for (const measure of MEASURES) {
+      if (usedIds.has(measure.id)) continue;
+      const options: Decision[] = measure.scope === "Район"
+        ? DISTRICTS.map((district) => ({ measureId: measure.id, districtId: district.id }))
+        : [{ measureId: measure.id }];
+
+      for (const added of options) {
+        if (compareDecisions(removed, added) === 0) continue;
+        const decisions = [...remaining, added].sort(compareDecisions);
+        const scenario = calculateScenario(decisions);
+        if (!scenario.valid || scenario.score - baseline.score <= SCORE_EPSILON) continue;
+        candidates.push({
+          suggestion: {
+            removed: { ...removed }, added: { ...added }, scenario,
+            scoreDelta: scenario.score - baseline.score,
+            costDelta: scenario.cost - baseline.cost,
+          },
+          key: decisions.map(decisionKey).join("|"),
+        });
+      }
+    }
+  }
+
+  if (candidates.length === 0) return null;
+  const maximum = Math.max(...candidates.map((c) => c.suggestion.scenario.score));
+  // Сначала фиксируем максимум, чтобы допуск сравнения не зависел от порядка перебора.
+  const tied = candidates.filter((c) => maximum - c.suggestion.scenario.score <= SCORE_EPSILON);
+  tied.sort((a, b) => a.suggestion.scenario.cost - b.suggestion.scenario.cost ||
+    (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  return tied[0].suggestion;
 }
