@@ -1,4 +1,4 @@
-// Кросс-проверка src/lib/engine.ts против независимого пакета Данияла
+// Кросс-проверка src/lib/engine.ts против независимого проверочного комплекта
 // (fixtures/daniyal/scenario-fixtures.json + city-data.json).
 // Запуск: npm run verify:daniyal
 import { readFileSync } from "node:fs";
@@ -188,8 +188,8 @@ for (const u of fixtures.unitChecks) {
 }
 
 if (failures > 0) {
-  console.error(`\n${failures} расхождение(й) с пакетом Данияла.`);
+  console.error(`\n${failures} расхождение(й) с независимым проверочным комплектом.`);
   process.exit(1);
 } else {
-  console.log(`\nВсе ${fixtures.scenarios.length} сценариев, база и ${fixtures.unitChecks.length} unit-проверок Данияла совпали (допуск ${TOLERANCE}).`);
+  console.log(`\nВсе ${fixtures.scenarios.length} сценариев, база и ${fixtures.unitChecks.length} граничных проверок совпали (допуск ${TOLERANCE}).`);
 }

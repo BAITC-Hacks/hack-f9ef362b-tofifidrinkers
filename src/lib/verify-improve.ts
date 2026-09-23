@@ -1,4 +1,4 @@
-// Проверки части Данияла. Запуск: npx tsx src/lib/verify-improve.ts
+// Проверки советника. Запуск: npx tsx src/lib/verify-improve.ts
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
