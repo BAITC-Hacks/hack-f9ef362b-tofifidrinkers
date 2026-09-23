@@ -70,6 +70,10 @@ export default function WorldCanvas({
       element.width = width;
       element.height = height;
       camera.zoom = width < 600 ? 0.85 : Math.min(1.1, width / 1100);
+      // Resizing clears the canvas. Paint immediately, including when the
+      // browser postpones animation frames in a preview or background tab.
+      renderWorld(ctx, width, height, camera, player.current, facing, false,
+        performance.now(), callbacks.current.data, path.current, media.matches);
     };
     const observer = new ResizeObserver(resize);
     observer.observe(element);

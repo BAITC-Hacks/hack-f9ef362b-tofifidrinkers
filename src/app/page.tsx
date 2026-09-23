@@ -1,6 +1,6 @@
-import Simulator from "@/components/Simulator";
+import Game from "@/components/game/Game";
 
 export default function Home() {
-  return <Simulator />;
+  return <Game />;
 }
 
